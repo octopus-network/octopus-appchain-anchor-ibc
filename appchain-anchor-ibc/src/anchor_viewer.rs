@@ -5,10 +5,6 @@ pub trait AnchorViewer {
     fn get_anchor_version(&self) -> String;
     /// Get anchor settings detail.
     fn get_anchor_settings(&self) -> AnchorSettings;
-    /// Get appchain settings detail.
-    fn get_appchain_settings(&self) -> AppchainSettings;
-    /// Get protocol settings detail.
-    fn get_protocol_settings(&self) -> ProtocolSettings;
     /// Get the reward token contract.
     fn get_reward_token_contract(&self) -> AccountId;
     /// Get the locked amount of reward token.
@@ -30,14 +26,6 @@ impl AnchorViewer for AppchainAnchor {
     //
     fn get_anchor_settings(&self) -> AnchorSettings {
         self.anchor_settings.get().unwrap()
-    }
-    //
-    fn get_appchain_settings(&self) -> AppchainSettings {
-        self.appchain_settings.get().unwrap()
-    }
-    //
-    fn get_protocol_settings(&self) -> ProtocolSettings {
-        self.protocol_settings.get().unwrap()
     }
     //
     fn get_reward_token_contract(&self) -> AccountId {

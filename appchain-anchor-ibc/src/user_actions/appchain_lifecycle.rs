@@ -19,10 +19,9 @@ impl AppchainLifecycleManager for AppchainAnchor {
             self.validator_set_histories.get(&0).is_some(),
             "The validator set 0 has not been generated."
         );
-        let appchain_settings = self.appchain_settings.get().unwrap();
+        let anchor_settings = self.anchor_settings.get().unwrap();
         assert!(
-            !(appchain_settings.rpc_endpoint.trim().is_empty()
-                || appchain_settings.era_reward.0 == 0),
+            !(anchor_settings.era_reward.0 == 0),
             "Missing appchain settings."
         );
         self.appchain_state = AppchainState::Active;

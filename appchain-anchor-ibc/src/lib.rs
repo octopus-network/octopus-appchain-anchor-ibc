@@ -14,7 +14,6 @@ extern crate std;
 
 use crate::prelude::*;
 use core::ops::Mul;
-use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap, UnorderedSet};
 use near_sdk::json_types::{U128, U64};
@@ -30,7 +29,7 @@ use types::*;
 use validator_set::{ValidatorSet, ValidatorSetViewer};
 
 mod anchor_viewer;
-pub mod interfaces;
+mod ext_contracts;
 pub mod lookup_array;
 mod prelude;
 mod storage_key;
@@ -45,58 +44,6 @@ const ANCHOR_VERSION: &str = "v1.0.0";
 /// Constants for gas.
 const T_GAS_FOR_SYNC_STATE_TO_REGISTRY: u64 = 10;
 const T_GAS_CAP_FOR_MULTI_TXS_PROCESSING: u64 = 130;
-/// The value of decimals value of USD.
-const USD_DECIMALS_VALUE: Balance = 1_000_000;
-/// The value of decimals value of OCT token.
-const OCT_DECIMALS_VALUE: Balance = 1_000_000_000_000_000_000;
-
-#[ext_contract(ext_self)]
-trait ResolverForSelfCallback {
-    /// Resolver for burning wrapped appchain token
-    fn resolve_wrapped_appchain_token_burning(
-        &mut self,
-        sender_id_in_near: AccountId,
-        receiver_id_in_appchain: String,
-        amount: U128,
-    );
-    /// Resolver for minting wrapped appchain token
-    fn resolve_wrapped_appchain_token_minting(
-        &mut self,
-        sender_id_in_appchain: Option<String>,
-        receiver_id_in_near: AccountId,
-        amount: U128,
-        appchain_message_nonce: u32,
-    );
-    /// Resolver for transfer NEAR fungible token
-    fn resolve_fungible_token_transfer(
-        &mut self,
-        symbol: String,
-        sender_id_in_appchain: String,
-        receiver_id_in_near: AccountId,
-        amount: U128,
-        appchain_message_nonce: u32,
-    );
-    /// Resolver for transfer wrapped appchain NFT
-    fn resolve_wrapped_appchain_nft_transfer(
-        &mut self,
-        owner_id_in_appchain: String,
-        receiver_id_in_near: AccountId,
-        class_id: String,
-        instance_id: String,
-        token_metadata: TokenMetadata,
-        appchain_message_nonce: u32,
-    );
-    /// Resolver for mint wrapped appchain NFT
-    fn resolve_wrapped_appchain_nft_mint(
-        &mut self,
-        owner_id_in_appchain: String,
-        receiver_id_in_near: AccountId,
-        class_id: String,
-        instance_id: String,
-        token_metadata: TokenMetadata,
-        appchain_message_nonce: u32,
-    );
-}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -121,12 +68,8 @@ pub struct AppchainAnchor {
     validator_set_histories: LookupArray<ValidatorSet>,
     /// The pubkeys of validators in appchain.
     validator_pubkeys_in_appchain: LookupMap<AccountId, Vec<u8>>,
-    /// The custom settings for appchain.
-    appchain_settings: LazyOption<AppchainSettings>,
     /// The anchor settings for appchain.
     anchor_settings: LazyOption<AnchorSettings>,
-    /// The protocol settings for appchain anchor.
-    protocol_settings: LazyOption<ProtocolSettings>,
     /// The state of the corresponding appchain.
     appchain_state: AppchainState,
 }
@@ -158,17 +101,9 @@ impl AppchainAnchor {
             locked_reward_token_amount: 0,
             validator_set_histories: LookupArray::new(StorageKey::ValidatorSetHistoriesMap),
             validator_pubkeys_in_appchain: LookupMap::new(StorageKey::ValidatorPubkeysInAppchain),
-            appchain_settings: LazyOption::new(
-                StorageKey::AppchainSettings,
-                Some(&AppchainSettings::default()),
-            ),
             anchor_settings: LazyOption::new(
                 StorageKey::AnchorSettings,
                 Some(&AnchorSettings::default()),
-            ),
-            protocol_settings: LazyOption::new(
-                StorageKey::ProtocolSettings,
-                Some(&ProtocolSettings::default()),
             ),
             appchain_state: AppchainState::Booting,
         }
@@ -181,20 +116,20 @@ impl AppchainAnchor {
             "This function can only be called by owner."
         );
     }
-    // Assert that the function is called by appchain registry.
-    fn assert_registry(&self) {
-        assert_eq!(
-            env::predecessor_account_id(),
-            self.appchain_registry,
-            "This function can only be called by appchain registry contract."
-        )
-    }
     //
     fn assert_reward_token_contract(&self) {
         assert_eq!(
             env::predecessor_account_id(),
             self.reward_token_contract,
             "This function can only be called by reward token contract."
+        )
+    }
+    //
+    fn assert_restaking_base_contract(&self) {
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.restaking_base_contract,
+            "This function can only be called by restaking base contract."
         )
     }
 }

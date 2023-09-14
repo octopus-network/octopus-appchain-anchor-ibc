@@ -25,12 +25,8 @@ pub struct OldAppchainAnchor {
     validator_set_histories: LookupArray<ValidatorSet>,
     /// The pubkeys of validators in appchain.
     validator_pubkeys_in_appchain: LookupMap<AccountId, Vec<u8>>,
-    /// The custom settings for appchain.
-    appchain_settings: LazyOption<AppchainSettings>,
     /// The anchor settings for appchain.
     anchor_settings: LazyOption<AnchorSettings>,
-    /// The protocol settings for appchain anchor.
-    protocol_settings: LazyOption<ProtocolSettings>,
     /// The state of the corresponding appchain.
     appchain_state: AppchainState,
 }
@@ -56,9 +52,7 @@ impl AppchainAnchor {
             locked_reward_token_amount: old_contract.locked_reward_token_amount,
             validator_set_histories: old_contract.validator_set_histories,
             validator_pubkeys_in_appchain: old_contract.validator_pubkeys_in_appchain,
-            appchain_settings: old_contract.appchain_settings,
             anchor_settings: old_contract.anchor_settings,
-            protocol_settings: old_contract.protocol_settings,
             appchain_state: old_contract.appchain_state,
         };
         //
