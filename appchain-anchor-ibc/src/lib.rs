@@ -14,25 +14,25 @@ extern crate std;
 
 use crate::prelude::*;
 use core::ops::Mul;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, LookupMap, UnorderedSet};
-use near_sdk::json_types::{U128, U64};
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise,
-    PromiseOrValue, PublicKey,
-};
-
 use lookup_array::{IndexedAndClearable, LookupArray};
-use storage_key::StorageKey;
+use near_sdk::{
+    borsh::{self, BorshDeserialize, BorshSerialize},
+    collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet},
+    env, ext_contract,
+    json_types::{U128, U64},
+    log, near_bindgen,
+    serde::{Deserialize, Serialize},
+    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue, PublicKey,
+};
 use types::*;
 use validator_set::{ValidatorSet, ValidatorSetViewer};
 
 mod anchor_viewer;
+mod contract_actions;
 mod ext_contracts;
 pub mod lookup_array;
+mod permissonless_actions;
 mod prelude;
-mod storage_key;
 pub mod storage_migration;
 pub mod types;
 mod upgrade;
@@ -44,6 +44,20 @@ const ANCHOR_VERSION: &str = "v1.0.0";
 /// Constants for gas.
 const T_GAS_FOR_SYNC_STATE_TO_REGISTRY: u64 = 10;
 const T_GAS_CAP_FOR_MULTI_TXS_PROCESSING: u64 = 130;
+
+/// Storage keys for collections of sub-struct in main contract
+#[derive(BorshDeserialize, BorshSerialize, BorshStorageKey, Clone)]
+pub enum StorageKey {
+    AnchorContractWasm,
+    AnchorSettings,
+    PendingRewards,
+    RemovingValidatorSetSteps,
+    ValidatorAddressToIdMap,
+    ValidatorIdToPubkeyMap,
+    ValidatorSetHistories,
+    ValidatorIdSetOf(u64),
+    ValidatorsOf(u64),
+}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -67,11 +81,15 @@ pub struct AppchainAnchor {
     /// The history data of validator set.
     validator_set_histories: LookupArray<ValidatorSet>,
     /// The pubkeys of validators in appchain.
-    validator_pubkeys_in_appchain: LookupMap<AccountId, Vec<u8>>,
+    validator_id_to_pubkey_map: UnorderedMap<AccountId, Vec<u8>>,
+    /// The addresses of validators in appchain.
+    validator_address_to_id_map: UnorderedMap<Vec<u8>, AccountId>,
     /// The anchor settings for appchain.
     anchor_settings: LazyOption<AnchorSettings>,
     /// The state of the corresponding appchain.
     appchain_state: AppchainState,
+    /// The pending rewards of validators which are not distributed yet.
+    pending_rewards: LazyOption<VecDeque<RewardDistribution>>,
 }
 
 #[near_bindgen]
@@ -99,13 +117,15 @@ impl AppchainAnchor {
             near_ibc_contract,
             reward_token_contract,
             locked_reward_token_amount: 0,
-            validator_set_histories: LookupArray::new(StorageKey::ValidatorSetHistoriesMap),
-            validator_pubkeys_in_appchain: LookupMap::new(StorageKey::ValidatorPubkeysInAppchain),
+            validator_set_histories: LookupArray::new(StorageKey::ValidatorSetHistories),
+            validator_id_to_pubkey_map: UnorderedMap::new(StorageKey::ValidatorIdToPubkeyMap),
+            validator_address_to_id_map: UnorderedMap::new(StorageKey::ValidatorAddressToIdMap),
             anchor_settings: LazyOption::new(
                 StorageKey::AnchorSettings,
                 Some(&AnchorSettings::default()),
             ),
             appchain_state: AppchainState::Booting,
+            pending_rewards: LazyOption::new(StorageKey::PendingRewards, None),
         }
     }
     // Assert that the function is called by the owner.
@@ -130,6 +150,14 @@ impl AppchainAnchor {
             env::predecessor_account_id(),
             self.restaking_base_contract,
             "This function can only be called by restaking base contract."
+        )
+    }
+    //
+    fn assert_near_ibc_contract(&self) {
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.near_ibc_contract,
+            "This function can only be called by near-ibc contract."
         )
     }
 }
@@ -198,4 +226,11 @@ impl AppchainAnchor {
             );
         }
     }
+}
+
+/// The input param should be a public key in bytes.
+pub fn calculate_address(public_key: &[u8]) -> Vec<u8> {
+    let hash = env::sha256(public_key);
+    let address = hash.get(0..20);
+    address.expect("Failed to get address from hash.").to_vec()
 }

@@ -1,5 +1,5 @@
-use crate::*;
-use near_sdk::IntoStorageKey;
+use crate::{validator_set::Validator, *};
+use near_sdk::{IntoStorageKey, Timestamp};
 
 pub type AppchainId = String;
 
@@ -33,17 +33,19 @@ pub struct AnchorSettings {
     pub era_reward: U128,
     /// The maximum number of validator(s) registered in this contract for
     /// the corresponding appchain.
-    pub maximum_validator_count: U64,
+    pub max_count_of_validators: u32,
     /// The minimum length of validator set history.
     /// This is used for keeping the minimum count of validator set history.
     pub min_length_of_validator_set_history: U64,
+    /// The minimum interval for new validator set.
+    pub min_interval_for_new_validator_set: U64,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AppchainValidator {
     pub validator_id: AccountId,
-    pub validator_pubkey_in_appchain: PublicKey,
+    pub validator_address: Vec<u8>,
     pub total_stake: U128,
 }
 
@@ -57,9 +59,10 @@ pub struct IndexRange {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AnchorStatus {
-    pub total_stake_in_next_era: U128,
-    pub validator_count_in_next_era: U64,
+    pub total_stake: U128,
+    pub validator_count: U64,
     pub index_range_of_validator_set_history: IndexRange,
+    pub matured_in_appchain: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -85,31 +88,31 @@ pub struct ValidatorSetInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "near_sdk::serde")]
-pub enum MultiTxsOperationProcessingResult {
+pub enum ProcessingResult {
     NeedMoreGas,
     Ok,
     Error(String),
 }
 
-impl MultiTxsOperationProcessingResult {
+impl ProcessingResult {
     ///
     pub fn is_ok(&self) -> bool {
         match self {
-            MultiTxsOperationProcessingResult::Ok => true,
+            ProcessingResult::Ok => true,
             _ => false,
         }
     }
     ///
     pub fn is_need_more_gas(&self) -> bool {
         match self {
-            MultiTxsOperationProcessingResult::NeedMoreGas => true,
+            ProcessingResult::NeedMoreGas => true,
             _ => false,
         }
     }
     ///
     pub fn is_error(&self) -> bool {
         match self {
-            MultiTxsOperationProcessingResult::Error(_) => true,
+            ProcessingResult::Error(_) => true,
             _ => false,
         }
     }
@@ -141,4 +144,51 @@ impl RemovingValidatorSetSteps {
     pub fn clear() {
         env::storage_remove(&StorageKey::RemovingValidatorSetSteps.into_storage_key());
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ValidatorSetView {
+    /// The id of the validator set.
+    pub id: U64,
+    /// All validators in this validator set.
+    pub validators: Vec<Validator>,
+    /// Total stake of current set
+    pub total_stake: Balance,
+    /// The sequence of the validator set in restaking base contract.
+    pub sequence: U64,
+    ///
+    pub timestamp: Timestamp,
+    /// Whether the validator set is matured on appchain.
+    pub matured_on_appchain: bool,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct AnchorDepositRewardMsg {
+    pub consumer_chain_id: String,
+    pub validator_set: Vec<(AccountId, U128)>,
+    pub sequence: U64,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct RewardDistribution {
+    pub transfer_call_msg: AnchorDepositRewardMsg,
+    pub amount: U128,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ValidatorKeyAndPower {
+    pub public_key: Vec<u8>,
+    pub power: U64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct VscPacketData {
+    pub validator_pubkeys: Vec<ValidatorKeyAndPower>,
+    pub validator_set_id: U64,
+    pub slash_acks: Vec<Vec<u8>>,
 }

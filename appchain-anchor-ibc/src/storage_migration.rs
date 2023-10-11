@@ -24,11 +24,15 @@ pub struct OldAppchainAnchor {
     /// The history data of validator set.
     validator_set_histories: LookupArray<ValidatorSet>,
     /// The pubkeys of validators in appchain.
-    validator_pubkeys_in_appchain: LookupMap<AccountId, Vec<u8>>,
+    validator_id_to_pubkey_map: UnorderedMap<AccountId, Vec<u8>>,
+    /// The addresses of validators in appchain.
+    validator_address_to_id_map: UnorderedMap<Vec<u8>, AccountId>,
     /// The anchor settings for appchain.
     anchor_settings: LazyOption<AnchorSettings>,
     /// The state of the corresponding appchain.
     appchain_state: AppchainState,
+    /// The pending rewards of validators which are not distributed yet.
+    pending_rewards: LazyOption<VecDeque<RewardDistribution>>,
 }
 
 #[near_bindgen]
@@ -51,9 +55,11 @@ impl AppchainAnchor {
             reward_token_contract: old_contract.reward_token_contract,
             locked_reward_token_amount: old_contract.locked_reward_token_amount,
             validator_set_histories: old_contract.validator_set_histories,
-            validator_pubkeys_in_appchain: old_contract.validator_pubkeys_in_appchain,
+            validator_id_to_pubkey_map: old_contract.validator_id_to_pubkey_map,
+            validator_address_to_id_map: old_contract.validator_address_to_id_map,
             anchor_settings: old_contract.anchor_settings,
             appchain_state: old_contract.appchain_state,
+            pending_rewards: old_contract.pending_rewards,
         };
         //
         //

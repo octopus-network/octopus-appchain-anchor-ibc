@@ -15,6 +15,10 @@ pub trait AnchorViewer {
     fn get_anchor_status(&self) -> AnchorStatus;
     /// Get current storage balance needed by this contract account.
     fn get_storage_balance(&self) -> U128;
+    /// Get pending rewards of validators which are not distributed yet.
+    fn get_pending_rewards(&self) -> Vec<RewardDistribution>;
+    /// Get validator set history by index.
+    fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView>;
 }
 
 #[near_bindgen]
@@ -41,15 +45,34 @@ impl AnchorViewer for AppchainAnchor {
     }
     //
     fn get_anchor_status(&self) -> AnchorStatus {
-        let next_validator_set = self.validator_set_histories.get_latest().unwrap();
+        let latest_vs = self
+            .validator_set_histories
+            .get_latest()
+            .expect("No validator set history found.");
         AnchorStatus {
-            total_stake_in_next_era: next_validator_set.total_stake().into(),
-            validator_count_in_next_era: next_validator_set.validator_count().into(),
+            total_stake: latest_vs.total_stake().into(),
+            validator_count: latest_vs.validator_count().into(),
             index_range_of_validator_set_history: self.validator_set_histories.index_range(),
+            matured_in_appchain: latest_vs.matured_in_appchain(),
         }
     }
     //
     fn get_storage_balance(&self) -> U128 {
         U128::from(u128::from(env::storage_usage()) * env::storage_byte_cost())
+    }
+    //
+    fn get_pending_rewards(&self) -> Vec<RewardDistribution> {
+        self.pending_rewards
+            .get()
+            .unwrap_or_default()
+            .iter()
+            .cloned()
+            .collect()
+    }
+    //
+    fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView> {
+        self.validator_set_histories
+            .get(&index.0)
+            .map(|vs| vs.into())
     }
 }

@@ -41,13 +41,9 @@ impl SudoActions for AppchainAnchor {
         if self.validator_set_histories.len()
             <= anchor_settings.min_length_of_validator_set_history.0
         {
-            return format!(
-                "Era {}: {:?}",
-                era_number.0,
-                MultiTxsOperationProcessingResult::Ok
-            );
+            return format!("Era {}: {:?}", era_number.0, ProcessingResult::Ok);
         }
-        let mut result = (MultiTxsOperationProcessingResult::NeedMoreGas, None);
+        let mut result = (ProcessingResult::NeedMoreGas, None);
         while env::used_gas() < max_gas && result.0.is_need_more_gas() {
             result = match RemovingValidatorSetSteps::recover() {
                 RemovingValidatorSetSteps::ClearingOldestValidatorSet => {
@@ -69,14 +65,6 @@ impl SudoActions for AppchainAnchor {
         log!(
             "AnchorContractWasm: {}",
             env::storage_remove(&StorageKey::AnchorContractWasm.into_storage_key())
-        );
-        log!(
-            "WrappedAppchainNFTContractWasm: {}",
-            env::storage_remove(&StorageKey::WrappedAppchainNFTContractWasm.into_storage_key())
-        );
-        log!(
-            "NearVaultContractWasm: {}",
-            env::storage_remove(&StorageKey::NearVaultContractWasm.into_storage_key())
         );
     }
 }
