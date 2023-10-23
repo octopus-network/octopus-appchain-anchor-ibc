@@ -22,7 +22,10 @@ pub enum ValidatorStatus {
     /// The validator will be included in the next validator set, but keep this status.
     ///
     /// A validator with this status will not be sent to appchain in the next VSC packet.
-    WaitForSlash,
+    ///
+    /// The slash request will be sent to restaking base contract by `slash_validator` function.
+    /// And the slash id returned by the function will be set to this status.
+    WaitForSlash(U64),
     /// The validator is slashed by appchain governance.
     ///
     /// Will be set when function `approve_slash_request` is called.
@@ -118,6 +121,36 @@ impl ValidatorSet {
         }
     }
     ///
+    pub fn jail_validator(&mut self, validator_id: &AccountId) {
+        if let Some(validator) = self.validators.get(validator_id) {
+            if validator.status == ValidatorStatus::Active {
+                self.validators.insert(
+                    &validator_id,
+                    &Validator {
+                        validator_id: validator_id.clone(),
+                        total_stake: validator.total_stake,
+                        status: ValidatorStatus::Jailed,
+                    },
+                );
+            }
+        }
+    }
+    ///
+    pub fn wait_for_slashing_validator(&mut self, validator_id: &AccountId, slash_id: U64) {
+        if let Some(validator) = self.validators.get(validator_id) {
+            if validator.status == ValidatorStatus::Active {
+                self.validators.insert(
+                    &validator_id,
+                    &Validator {
+                        validator_id: validator_id.clone(),
+                        total_stake: validator.total_stake,
+                        status: ValidatorStatus::WaitForSlash(slash_id),
+                    },
+                );
+            }
+        }
+    }
+    ///
     pub fn clear(&mut self, max_gas: Gas) -> ProcessingResult {
         let validator_ids = self.validator_id_set.to_vec();
         for validator_id in validator_ids {
@@ -209,8 +242,10 @@ impl ValidatorSetViewer for ValidatorSet {
             .iter()
             .filter(|id| {
                 if let Some(validator) = self.validators.get(&id) {
-                    validator.status == ValidatorStatus::Jailed
-                        || validator.status == ValidatorStatus::WaitForSlash
+                    match validator.status {
+                        ValidatorStatus::Jailed | ValidatorStatus::WaitForSlash(_) => true,
+                        _ => false,
+                    }
                 } else {
                     false
                 }

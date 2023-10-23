@@ -21,7 +21,7 @@ impl NearIbcActions for AppchainAnchor {
     fn slash_validator(&mut self, slach_packet_data: SlashPacketData) {
         self.assert_near_ibc_contract();
         let slashing_validator = slach_packet_data.validator.expect("Validator is empty.");
-        let validator_set = self
+        let mut validator_set = self
             .validator_set_histories
             .get(&slach_packet_data.valset_update_id)
             .expect(
@@ -41,20 +41,26 @@ impl NearIbcActions for AppchainAnchor {
                 )
                 .as_str(),
             );
-        let validator = validator_set.get_validator(&validator_id).expect(
-            format!(
-                "Validator for address {:?} is not found in validator set {}.",
-                slashing_validator.address, slach_packet_data.valset_update_id
-            )
-            .as_str(),
-        );
-        let slash_items = vec![(validator.validator_id, U128::from(validator.total_stake))];
-        ext_restaking_base::ext(self.restaking_base_contract.clone())
-            .slash_request(self.appchain_id.clone(), slash_items.clone(), String::new())
-            .then(
-                ext_restaking_base_callbacks::ext(env::current_account_id())
-                    .slash_request_callback(slash_items),
-            );
+        match slach_packet_data.infraction {
+            1 => validator_set.jail_validator(&validator_id),
+            2 => {
+                let validator = validator_set.get_validator(&validator_id).expect(
+                    format!(
+                        "Validator for address {:?} is not found in validator set {}.",
+                        slashing_validator.address, slach_packet_data.valset_update_id
+                    )
+                    .as_str(),
+                );
+                let slash_items = vec![(validator.validator_id, U128::from(validator.total_stake))];
+                ext_restaking_base::ext(self.restaking_base_contract.clone())
+                    .slash_request(self.appchain_id.clone(), slash_items.clone(), String::new())
+                    .then(
+                        ext_restaking_base_callbacks::ext(env::current_account_id())
+                            .slash_request_callback(slash_items),
+                    );
+            }
+            _ => (),
+        }
     }
     /// Interface for near-ibc to call when vsc_matured packet is received.
     fn on_vsc_matured(&mut self, validator_set_id: U64) {

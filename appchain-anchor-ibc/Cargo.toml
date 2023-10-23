@@ -11,4 +11,10 @@ crate-type = ["cdylib", "rlib"]
 near-sdk = "4.1.1"
 near-contract-standards = "4.1.1"
 hex = "0.4.2"
-octopus-lpos = { path = "/Users/yangzhen/workspace/octopus-network/octopus-lpos-ibc/octopus-lpos" }
+ibc = { version = "0.45.0", default-features = false, features = ["borsh", "serde"]}
+ibc-proto = { version = "0.35.0", default-features = false, features = ["serde"] }
+prost = { version = "0.11" }
+tendermint = { version = "0.33" }
+tendermint-proto = { version = "0.33" }
+base64 = "0.21"
+octopus-lpos = { git = "https://github.com/octopus-network/octopus-lpos-ibc.git", branch = "main" }

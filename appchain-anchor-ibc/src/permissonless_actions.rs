@@ -5,8 +5,6 @@ use crate::{
 };
 use near_contract_standards::fungible_token::core::ext_ft_core;
 
-const NEAR_SCALE: u128 = 1_000_000_000_000_000_000_000_000;
-
 /// Any account can call these functions.
 pub trait PermissionlessActions {
     /// Fetch validator set from restaking base contract.
@@ -30,11 +28,9 @@ impl PermissionlessActions for AppchainAnchor {
                 "The interval between two validator sets is too short."
             );
         }
+        let consumer_chain_id = format!("cosmos:{}", self.appchain_id);
         ext_restaking_base::ext(self.restaking_base_contract.clone())
-            .get_validator_set(
-                self.appchain_id.clone(),
-                anchor_settings.max_count_of_validators,
-            )
+            .get_validator_set(consumer_chain_id, anchor_settings.max_count_of_validators)
             .then(
                 ext_restaking_base_callbacks::ext(env::current_account_id())
                     .get_validator_set_callback(),

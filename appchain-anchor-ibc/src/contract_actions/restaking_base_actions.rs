@@ -1,5 +1,5 @@
 use crate::*;
-use core::str::FromStr;
+use base64::{DecodeError, Engine};
 
 /// The interfaces for `restaking-base` contract to call.
 pub trait RestakingBaseActions {
@@ -18,23 +18,14 @@ pub trait RestakingBaseActions {
 #[near_bindgen]
 impl RestakingBaseActions for AppchainAnchor {
     //
-    #[payable]
     fn bond(&mut self, staker_id: AccountId, key: String) {
         self.assert_restaking_base_contract();
-        match PublicKey::from_str(key.as_str()) {
+        match decode_pubkey(&key) {
             Ok(public_key) => {
-                let storage_cost = (staker_id.as_bytes().len() + public_key.as_bytes().len())
-                    as u128
-                    * env::storage_byte_cost();
-                assert!(
-                    env::attached_deposit() >= storage_cost,
-                    "Not enough deposit to cover the storage cost. At least needs {} yocto.",
-                    storage_cost
-                );
                 self.validator_id_to_pubkey_map
-                    .insert(&staker_id, &public_key.clone().into_bytes());
+                    .insert(&staker_id, &public_key);
                 self.validator_address_to_id_map
-                    .insert(&calculate_address(public_key.as_bytes()), &staker_id);
+                    .insert(&calculate_address(public_key.as_slice()), &staker_id);
             }
             Err(err) => panic!("Invalid public key: {}", err),
         };
@@ -46,16 +37,21 @@ impl RestakingBaseActions for AppchainAnchor {
             .validator_id_to_pubkey_map
             .get(&staker_id)
             .expect("The staker is not bonded yet.");
-        match PublicKey::from_str(key.as_str()) {
+        match decode_pubkey(&key) {
             Ok(public_key) => {
                 self.validator_id_to_pubkey_map
-                    .insert(&staker_id, &public_key.clone().into_bytes());
+                    .insert(&staker_id, &public_key);
                 self.validator_address_to_id_map
                     .remove(&calculate_address(old_key.as_slice()));
                 self.validator_address_to_id_map
-                    .insert(&calculate_address(public_key.as_bytes()), &staker_id);
+                    .insert(&calculate_address(public_key.as_slice()), &staker_id);
             }
-            Err(err) => panic!("Invalid public key: {}", err),
+            Err(err) => panic!("Invalid public key: {:?}", err),
         };
     }
+}
+
+fn decode_pubkey(key: &String) -> Result<Vec<u8>, DecodeError> {
+    let key = key.trim_start_matches("ed25519:");
+    base64::engine::general_purpose::STANDARD.decode(key)
 }

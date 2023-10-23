@@ -14,6 +14,7 @@ extern crate std;
 
 use crate::prelude::*;
 use core::ops::Mul;
+use ibc::core::ics24_host::identifier::ChainId;
 use lookup_array::{IndexedAndClearable, LookupArray};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -22,7 +23,7 @@ use near_sdk::{
     json_types::{U128, U64},
     log, near_bindgen,
     serde::{Deserialize, Serialize},
-    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue, PublicKey,
+    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue,
 };
 use types::*;
 use validator_set::{ValidatorSet, ValidatorSetViewer};
@@ -44,6 +45,8 @@ const ANCHOR_VERSION: &str = "v1.0.0";
 /// Constants for gas.
 const T_GAS_FOR_SYNC_STATE_TO_REGISTRY: u64 = 10;
 const T_GAS_CAP_FOR_MULTI_TXS_PROCESSING: u64 = 130;
+/// The scale for converting between `NEAR` and `yoctoNear`.
+const NEAR_SCALE: u128 = 1_000_000_000_000_000_000_000_000;
 
 /// Storage keys for collections of sub-struct in main contract
 #[derive(BorshDeserialize, BorshSerialize, BorshStorageKey, Clone)]
@@ -108,10 +111,14 @@ impl AppchainAnchor {
             "This contract must be deployed as a sub-account of octopus appchain registry.",
         );
         let (appchain_id, appchain_registry) = account_id.split_once(".").unwrap();
+        ChainId::new(appchain_id, 0).expect(
+            "Invalid account id for appchain anchor ibc. \
+            The subaccount name is not valid in `ibc-rs`.",
+        );
         Self {
             appchain_id: appchain_id.to_string(),
             appchain_registry: AccountId::try_from(appchain_registry.to_string()).unwrap(),
-            owner: env::predecessor_account_id(),
+            owner: env::current_account_id(),
             restaking_base_contract,
             lpos_market_contract,
             near_ibc_contract,
@@ -127,6 +134,12 @@ impl AppchainAnchor {
             appchain_state: AppchainState::Booting,
             pending_rewards: LazyOption::new(StorageKey::PendingRewards, None),
         }
+    }
+    //
+    pub fn set_owner(&mut self, owner: AccountId) {
+        self.assert_owner();
+        assert!(!owner.eq(&self.owner), "Owner is not changed.",);
+        self.owner = owner;
     }
     // Assert that the function is called by the owner.
     fn assert_owner(&self) {
@@ -159,20 +172,6 @@ impl AppchainAnchor {
             self.near_ibc_contract,
             "This function can only be called by near-ibc contract."
         )
-    }
-}
-
-#[near_bindgen]
-impl AppchainAnchor {
-    //
-    pub fn get_owner(&self) -> AccountId {
-        self.owner.clone()
-    }
-    //
-    pub fn set_owner(&mut self, owner: AccountId) {
-        self.assert_owner();
-        assert!(!owner.eq(&self.owner), "Owner is not changed.",);
-        self.owner = owner;
     }
 }
 
@@ -231,6 +230,6 @@ impl AppchainAnchor {
 /// The input param should be a public key in bytes.
 pub fn calculate_address(public_key: &[u8]) -> Vec<u8> {
     let hash = env::sha256(public_key);
-    let address = hash.get(0..20);
+    let address = hash.get(..20);
     address.expect("Failed to get address from hash.").to_vec()
 }

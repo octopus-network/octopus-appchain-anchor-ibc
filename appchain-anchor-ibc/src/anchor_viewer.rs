@@ -3,6 +3,8 @@ use crate::*;
 pub trait AnchorViewer {
     /// Get version of this contract.
     fn get_anchor_version(&self) -> String;
+    /// Get owner of this contract.
+    fn get_owner(&self) -> AccountId;
     /// Get anchor settings detail.
     fn get_anchor_settings(&self) -> AnchorSettings;
     /// Get the reward token contract.
@@ -26,6 +28,10 @@ impl AnchorViewer for AppchainAnchor {
     //
     fn get_anchor_version(&self) -> String {
         ANCHOR_VERSION.to_string()
+    }
+    //
+    fn get_owner(&self) -> AccountId {
+        self.owner.clone()
     }
     //
     fn get_anchor_settings(&self) -> AnchorSettings {
