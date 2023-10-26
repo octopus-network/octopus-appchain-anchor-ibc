@@ -1,3 +1,4 @@
+use super::reward_token_callbacks::ext_reward_token_callbacks;
 use crate::{
     contract_actions::restaking_base_callbacks::ext_restaking_base_callbacks,
     ext_contracts::ext_restaking_base, *,
@@ -74,6 +75,11 @@ impl NearIbcActions for AppchainAnchor {
     /// Interface for near-ibc to call when distribute_reward packet is received.
     fn distribute_reward(&mut self, validator_set_id: U64) {
         self.assert_near_ibc_contract();
+        assert!(
+            env::prepaid_gas() >= Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10),
+            "Not enough gas, needs at least {}T.",
+            T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10
+        );
         let validator_set = self
             .validator_set_histories
             .get(&validator_set_id.0)
@@ -81,25 +87,30 @@ impl NearIbcActions for AppchainAnchor {
         let anchor_settings = self.anchor_settings.get().unwrap();
         //
         let msg = AnchorDepositRewardMsg {
-            consumer_chain_id: self.appchain_id.clone(),
+            consumer_chain_id: format!("cosmos:{}", self.appchain_id.clone()),
             validator_set: validator_set.active_validators(),
             sequence: validator_set.sequence().into(),
         };
         if self.locked_reward_token_amount >= anchor_settings.era_reward.0 {
             ext_ft_core::ext(self.reward_token_contract.clone())
                 .with_attached_deposit(1)
+                .with_static_gas(Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
                 .ft_transfer_call(
                     self.lpos_market_contract.clone(),
                     anchor_settings.era_reward,
                     None,
                     near_sdk::serde_json::to_string(&msg).unwrap(),
+                )
+                .then(
+                    ext_reward_token_callbacks::ext(env::current_account_id())
+                        .ft_transfer_call_callback(msg),
                 );
-            self.locked_reward_token_amount -= anchor_settings.era_reward.0;
         } else {
             let mut pending_rewards = self.pending_rewards.get().unwrap_or_default();
             pending_rewards.push_back(RewardDistribution {
                 transfer_call_msg: msg,
                 amount: anchor_settings.era_reward,
+                timestamp: env::block_timestamp(),
             });
             self.pending_rewards.set(&pending_rewards);
             log!(

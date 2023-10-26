@@ -43,6 +43,13 @@ When the voting has passed in DAO, the appchain anchor account for the appchain 
 
 Deploy a new NEP-141 compatible token contract or use an existing one.
 
+Register appchain anchor account id and Octopus LPOS market contract id to the token contract. Here is an example for cli command:
+
+```bash
+near call $REWARD_TOKEN storage_deposit '{"account_id":"oct-cosmos-1.registry.test_oct.testnet","registration_only":null}' --accountId my-account.testnet --deposit 0.00125
+near call $REWARD_TOKEN storage_deposit '{"account_id":"contract-2.lpos-market.testnet","registration_only":null}' --accountId my-account.testnet --deposit 0.00125
+```
+
 ### Deploy appchain anchor contract
 
 Deploy the appchain anchor contract to the account which is created when the registration process in registry contract is completed. Here is an example for cli command:
@@ -59,10 +66,18 @@ Register consumer chain in Restaking Base contract with the consumer chain gover
 near call $RESTAKING_BASE register_consumer_chain '{"register_param":{"consumer_chain_id":"cosmos:oct-cosmos-1","cc_pos_account":"oct-cosmos-1.registry.test_oct.testnet","unbond_period":86400,"website":"https://jldfs.yoasdfasd","treasury":"riversyang.testnet"}}' --accountId riversyang.testnet --deposit 0.1 --gas 200000000000000
 ```
 
-Then the validators in the restaking base contract can restake to the consumer chain by bonding their pubkeys in consumer chain to the contract. The key bonded here should be the same as the key used in the validator node for the consumer chain. For example:
+Then the validators in the restaking base contract can restake to the consumer chain by bonding their pubkeys in consumer chain in Octopus LPOS market contract. The key bonded here should be the same as the key used in the validator node for the consumer chain. For example:
 
 ```bash
 near call $LPOS_MARKET bond '{"consumer_chain_id":"cosmos:oct-cosmos-1","key":"ed25519:lriei60AvqKy1VPOTQzm2Ka8MMxZEEwvONJtZrtBCSU="}' --accountId riversyang.testnet --deposit 0.01 --gas 200000000000000
+```
+
+> Note: The key bonded here must be in base64 format and must start with `ed25519:`.
+
+We also need to sync the consumer chain info from restaking base contract to lpos market contract. This command can be called by any account:
+
+```bash
+near call $LPOS_MARKET sync_consumer_chain_pos '{"consumer_chain_id":"cosmos:oct-cosmos-1"}' --accountId my-account.testnet --gas 200000000000000
 ```
 
 ### Fetch initial validator set from restaking base contract
@@ -193,3 +208,19 @@ near call $ANCHOR_ACCOUNT_ID send_vsc_packet_to_appchain '' --accountId $ANCHOR_
 ```
 
 We can check the transactions in the NEAR explorer to confirm that the VSC packet has been successfully sent to the appchain. Additionally, consumer packets with `NotifyRewardsPacketData` will be processed by the near ibc contract periodically and successfully.
+
+### Transfer reward token to appchain anchor account
+
+For distributing reward of corresponding appchain, we need to transfer a certain amount of reward token to the appchain anchor account. Here is an example for cli command:
+
+```bash
+near call $REWARD_TOKEN ft_transfer_call '{"receiver_id":"oct-cosmos-1.registry.test_oct.testnet","amount":"15000000000000000000","memo":null,"msg":""}' --accountId riversyang.testnet --depositYocto 1 --gas 200000000000000
+```
+
+> The transfer must be done through `ft_transfer_call` function. Otherwise, the deposited reward tokens will NOT be accounted.
+
+If the locked balance of reward token is not enough, the distribution request will be recorded in the appchain anchor contract. The distribution request can be checked by the following view function:
+
+```bash
+near view $ANCHOR_ACCOUNT_ID get_pending_rewards ''
+```

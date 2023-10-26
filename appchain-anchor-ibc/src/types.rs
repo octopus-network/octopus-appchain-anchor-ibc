@@ -66,7 +66,7 @@ pub struct AnchorStatus {
     pub total_stake: U128,
     pub validator_count: U64,
     pub index_range_of_validator_set_history: IndexRange,
-    pub matured_in_appchain: bool,
+    pub locked_reward_token_amount: U128,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -180,6 +180,7 @@ pub struct AnchorDepositRewardMsg {
 pub struct RewardDistribution {
     pub transfer_call_msg: AnchorDepositRewardMsg,
     pub amount: U128,
+    pub timestamp: Timestamp,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

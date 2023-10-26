@@ -1,6 +1,9 @@
 use crate::{
     anchor_viewer::AnchorViewer,
-    contract_actions::restaking_base_callbacks::ext_restaking_base_callbacks,
+    contract_actions::{
+        restaking_base_callbacks::ext_restaking_base_callbacks,
+        reward_token_callbacks::ext_reward_token_callbacks,
+    },
     ext_contracts::{ext_near_ibc, ext_restaking_base},
     *,
 };
@@ -23,10 +26,6 @@ impl PermissionlessActions for AppchainAnchor {
         let anchor_settings = self.anchor_settings.get().unwrap();
         if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
             assert!(
-                latest_validator_set.matured_in_appchain(),
-                "The latest validator set is not matured in appchain."
-            );
-            assert!(
                 env::block_timestamp() - latest_validator_set.timestamp()
                     > anchor_settings.min_interval_for_new_validator_set.0,
                 "The interval between two validator sets is too short."
@@ -43,10 +42,6 @@ impl PermissionlessActions for AppchainAnchor {
     //
     fn send_vsc_packet_to_appchain(&mut self) {
         if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
-            assert!(
-                !latest_validator_set.matured_in_appchain(),
-                "No validator set to send."
-            );
             ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
                 self.get_chain_id(),
                 self.generate_vsc_packet_data(&latest_validator_set),
@@ -61,6 +56,11 @@ impl PermissionlessActions for AppchainAnchor {
     }
     //
     fn distribute_pending_rewards(&mut self) -> ProcessingResult {
+        assert!(
+            env::prepaid_gas() >= Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10),
+            "Not enough gas, needs at least {}T.",
+            T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10
+        );
         let mut pending_rewards = self.pending_rewards.get().unwrap_or_default();
         if pending_rewards.is_empty() {
             return ProcessingResult::Ok;
@@ -72,13 +72,19 @@ impl PermissionlessActions for AppchainAnchor {
             );
         }
         //
-        ext_ft_core::ext(self.reward_token_contract.clone()).ft_transfer_call(
-            self.lpos_market_contract.clone(),
-            reward_distribution.amount,
-            None,
-            near_sdk::serde_json::to_string(&reward_distribution.transfer_call_msg).unwrap(),
-        );
-        self.locked_reward_token_amount -= reward_distribution.amount.0;
+        ext_ft_core::ext(self.reward_token_contract.clone())
+            .with_attached_deposit(1)
+            .with_static_gas(Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
+            .ft_transfer_call(
+                self.lpos_market_contract.clone(),
+                reward_distribution.amount,
+                None,
+                near_sdk::serde_json::to_string(&reward_distribution.transfer_call_msg).unwrap(),
+            )
+            .then(
+                ext_reward_token_callbacks::ext(env::current_account_id())
+                    .ft_transfer_call_callback(reward_distribution.transfer_call_msg),
+            );
         if pending_rewards.is_empty() {
             self.pending_rewards.remove();
             ProcessingResult::Ok

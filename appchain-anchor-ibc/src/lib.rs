@@ -43,7 +43,7 @@ mod validator_set;
 /// Version of this contract (the same as in Cargo.toml)
 const ANCHOR_VERSION: &str = "v1.0.0";
 /// Constants for gas.
-const T_GAS_FOR_SYNC_STATE_TO_REGISTRY: u64 = 10;
+const T_GAS_FOR_SIMPLE_FUNCTION_CALL: u64 = 10;
 const T_GAS_CAP_FOR_MULTI_TXS_PROCESSING: u64 = 130;
 /// The scale for converting between `NEAR` and `yoctoNear`.
 const NEAR_SCALE: u128 = 1_000_000_000_000_000_000_000_000;
@@ -221,7 +221,7 @@ impl AppchainAnchor {
                 "sync_state_of".to_string(),
                 args,
                 0,
-                Gas::ONE_TERA.mul(T_GAS_FOR_SYNC_STATE_TO_REGISTRY),
+                Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL),
             );
         }
     }
