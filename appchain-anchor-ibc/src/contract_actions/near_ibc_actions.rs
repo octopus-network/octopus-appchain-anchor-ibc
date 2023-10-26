@@ -86,12 +86,14 @@ impl NearIbcActions for AppchainAnchor {
             sequence: validator_set.sequence().into(),
         };
         if self.locked_reward_token_amount >= anchor_settings.era_reward.0 {
-            ext_ft_core::ext(self.reward_token_contract.clone()).ft_transfer_call(
-                self.lpos_market_contract.clone(),
-                anchor_settings.era_reward,
-                None,
-                near_sdk::serde_json::to_string(&msg).unwrap(),
-            );
+            ext_ft_core::ext(self.reward_token_contract.clone())
+                .with_attached_deposit(1)
+                .ft_transfer_call(
+                    self.lpos_market_contract.clone(),
+                    anchor_settings.era_reward,
+                    None,
+                    near_sdk::serde_json::to_string(&msg).unwrap(),
+                );
             self.locked_reward_token_amount -= anchor_settings.era_reward.0;
         } else {
             let mut pending_rewards = self.pending_rewards.get().unwrap_or_default();

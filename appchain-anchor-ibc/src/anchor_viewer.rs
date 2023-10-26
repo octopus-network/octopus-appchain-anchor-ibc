@@ -1,6 +1,8 @@
 use crate::*;
 
 pub trait AnchorViewer {
+    /// Get the chain id of corresponding appchain.
+    fn get_chain_id(&self) -> ChainId;
     /// Get version of this contract.
     fn get_anchor_version(&self) -> String;
     /// Get owner of this contract.
@@ -25,6 +27,14 @@ pub trait AnchorViewer {
 
 #[near_bindgen]
 impl AnchorViewer for AppchainAnchor {
+    //
+    fn get_chain_id(&self) -> ChainId {
+        ChainId::new(
+            self.appchain_id.as_str(),
+            self.anchor_settings.get().unwrap().chain_revision_number.0,
+        )
+        .expect("INVALID_CHAIN_ID, should not happen")
+    }
     //
     fn get_anchor_version(&self) -> String {
         ANCHOR_VERSION.to_string()

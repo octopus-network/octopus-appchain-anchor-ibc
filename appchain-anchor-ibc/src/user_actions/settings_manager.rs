@@ -3,22 +3,28 @@ use core::convert::From;
 
 pub trait AnchorSettingsManager {
     ///
-    fn set_era_reward(&mut self, era_reward: U128);
+    fn change_chain_revision_number(&mut self, value: U64);
+    ///
+    fn change_era_reward(&mut self, era_reward: U128);
     ///
     fn change_maximum_validator_count(&mut self, value: u32);
     ///
-    fn set_min_length_of_validator_set_history(&mut self, min_length: U64);
+    fn change_min_length_of_validator_set_history(&mut self, min_length: U64);
     ///
-    fn set_min_interval_for_new_validator_set(&mut self, min_interval: U64);
+    fn change_min_interval_for_new_validator_set(&mut self, min_interval: U64);
+    ///
+    fn change_vsc_packet_timeout_interval(&mut self, interval: U64);
 }
 
 impl Default for AnchorSettings {
     fn default() -> Self {
         Self {
+            chain_revision_number: U64(0),
             era_reward: U128::from(0),
             max_count_of_validators: 60,
             min_length_of_validator_set_history: U64::from(100),
             min_interval_for_new_validator_set: U64::from(3600 * 1_000_000_000),
+            vsc_packet_timeout_interval: U64::from(2400 * 1_000_000_000),
         }
     }
 }
@@ -26,9 +32,24 @@ impl Default for AnchorSettings {
 #[near_bindgen]
 impl AnchorSettingsManager for AppchainAnchor {
     //
-    fn set_era_reward(&mut self, era_reward: U128) {
+    fn change_chain_revision_number(&mut self, value: U64) {
         self.assert_owner();
         let mut anchor_settings = self.anchor_settings.get().unwrap();
+        assert!(
+            value.0 != anchor_settings.chain_revision_number.0,
+            "The value is not changed."
+        );
+        anchor_settings.chain_revision_number = value;
+        self.anchor_settings.set(&anchor_settings);
+    }
+    //
+    fn change_era_reward(&mut self, era_reward: U128) {
+        self.assert_owner();
+        let mut anchor_settings = self.anchor_settings.get().unwrap();
+        assert!(
+            era_reward.0 != anchor_settings.era_reward.0,
+            "The value is not changed."
+        );
         anchor_settings.era_reward = era_reward;
         self.anchor_settings.set(&anchor_settings);
     }
@@ -45,7 +66,7 @@ impl AnchorSettingsManager for AppchainAnchor {
         self.anchor_settings.set(&anchor_settings);
     }
     //
-    fn set_min_length_of_validator_set_history(&mut self, min_length: U64) {
+    fn change_min_length_of_validator_set_history(&mut self, min_length: U64) {
         self.assert_owner();
         let mut anchor_settings = self.anchor_settings.get().unwrap();
         assert!(
@@ -56,7 +77,7 @@ impl AnchorSettingsManager for AppchainAnchor {
         self.anchor_settings.set(&anchor_settings);
     }
     //
-    fn set_min_interval_for_new_validator_set(&mut self, min_interval: U64) {
+    fn change_min_interval_for_new_validator_set(&mut self, min_interval: U64) {
         self.assert_owner();
         let mut anchor_settings = self.anchor_settings.get().unwrap();
         assert!(
@@ -64,6 +85,17 @@ impl AnchorSettingsManager for AppchainAnchor {
             "The value is not changed."
         );
         anchor_settings.min_interval_for_new_validator_set = min_interval;
+        self.anchor_settings.set(&anchor_settings);
+    }
+    //
+    fn change_vsc_packet_timeout_interval(&mut self, interval: U64) {
+        self.assert_owner();
+        let mut anchor_settings = self.anchor_settings.get().unwrap();
+        assert!(
+            interval.0 != anchor_settings.vsc_packet_timeout_interval.0,
+            "The value is not changed."
+        );
+        anchor_settings.vsc_packet_timeout_interval = interval;
         self.anchor_settings.set(&anchor_settings);
     }
 }

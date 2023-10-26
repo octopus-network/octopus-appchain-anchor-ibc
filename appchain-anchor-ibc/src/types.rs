@@ -29,6 +29,8 @@ pub enum AppchainState {
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AnchorSettings {
+    /// The revision number of corresponding appchain.
+    pub chain_revision_number: U64,
     /// The rewards amount for each era.
     pub era_reward: U128,
     /// The maximum number of validator(s) registered in this contract for
@@ -39,6 +41,8 @@ pub struct AnchorSettings {
     pub min_length_of_validator_set_history: U64,
     /// The minimum interval for new validator set.
     pub min_interval_for_new_validator_set: U64,
+    /// The timeout interval for vsc packet (in nanoseconds).
+    pub vsc_packet_timeout_interval: U64,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

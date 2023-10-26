@@ -1,4 +1,5 @@
 use crate::{
+    anchor_viewer::AnchorViewer,
     contract_actions::restaking_base_callbacks::ext_restaking_base_callbacks,
     ext_contracts::{ext_near_ibc, ext_restaking_base},
     *,
@@ -22,9 +23,12 @@ impl PermissionlessActions for AppchainAnchor {
         let anchor_settings = self.anchor_settings.get().unwrap();
         if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
             assert!(
-                latest_validator_set.matured_in_appchain()
-                    && env::block_timestamp() - latest_validator_set.timestamp()
-                        > anchor_settings.min_interval_for_new_validator_set.0,
+                latest_validator_set.matured_in_appchain(),
+                "The latest validator set is not matured in appchain."
+            );
+            assert!(
+                env::block_timestamp() - latest_validator_set.timestamp()
+                    > anchor_settings.min_interval_for_new_validator_set.0,
                 "The interval between two validator sets is too short."
             );
         }
@@ -43,8 +47,14 @@ impl PermissionlessActions for AppchainAnchor {
                 !latest_validator_set.matured_in_appchain(),
                 "No validator set to send."
             );
-            ext_near_ibc::ext(self.near_ibc_contract.clone())
-                .send_vsc_packet(self.generate_vsc_packet_data(&latest_validator_set));
+            ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
+                self.get_chain_id(),
+                self.generate_vsc_packet_data(&latest_validator_set),
+                self.anchor_settings
+                    .get()
+                    .unwrap()
+                    .vsc_packet_timeout_interval,
+            );
         } else {
             panic!("No validator set to send.");
         }

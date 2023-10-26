@@ -165,7 +165,7 @@ Then we can try to reset and restart the appchain and continue to the following 
 ### Create IBC connection between appchain and near ibc contract
 
 ```bash
-hermes create connection --a-chain near-0 --a-client 07-tendermint-7 --b-client 06-solomachine-0 > hermes.log 2>&1 | tail -f hermes.log
+hermes create connection --a-chain near-0 --a-client 07-tendermint-0 --b-client 06-solomachine-0 > hermes.log 2>&1 | tail -f hermes.log
 ```
 
 ### Create IBC channel between appchain and near ibc contract
@@ -178,8 +178,18 @@ hermes create channel --a-chain oct-cosmos-1-0 --a-connection connection-0 --a-p
 
 ### Start relaying messages
 
-Once successfully created the channel, we can start relaying messages between appchain and near ibc contract. Here is an example for cli command:
+Once successfully created the channel, we can start relaying messages between appchain and near ibc contract.
 
 ```bash
 hermes start
 ```
+
+### Send initial validator set to appchain to confirm the connection
+
+The following command will send the latest validator set (which is the validator set 0 at this time) to appchain.
+
+```bash
+near call $ANCHOR_ACCOUNT_ID send_vsc_packet_to_appchain '' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
+```
+
+We can check the transactions in the NEAR explorer to confirm that the VSC packet has been successfully sent to the appchain. Additionally, consumer packets with `NotifyRewardsPacketData` will be processed by the near ibc contract periodically and successfully.

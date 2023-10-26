@@ -1,4 +1,5 @@
 use crate::{
+    anchor_viewer::AnchorViewer,
     ext_contracts::{ext_near_ibc, TmConsensusState},
     *,
 };
@@ -8,7 +9,7 @@ use ibc::{
         client_state::{AllowUpdate, ClientState as TmClientState},
         trust_threshold::TrustThreshold,
     },
-    core::{ics23_commitment::specs::ProofSpecs, ics24_host::identifier::ChainId},
+    core::ics23_commitment::specs::ProofSpecs,
     Height,
 };
 use prost::Message;
@@ -61,8 +62,7 @@ impl AppchainLifecycleManager for AppchainAnchor {
             "Max clock drift must be greater than 0 and less than trusting period."
         );
         let client_state = TmClientState::new(
-            ChainId::new(self.appchain_id.as_str(), 0)
-                .expect("INVALID_CHAIN_ID, should not happen"),
+            self.get_chain_id(),
             TrustThreshold::TWO_THIRDS,
             Duration::from_secs(trusting_period.0),
             Duration::from_secs(unbonding_period.0),

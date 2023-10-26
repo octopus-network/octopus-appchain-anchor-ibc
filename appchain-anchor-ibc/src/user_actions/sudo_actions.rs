@@ -3,6 +3,10 @@ use near_sdk::IntoStorageKey;
 
 pub trait SudoActions {
     ///
+    fn change_appchain_registry(&mut self, appchain_registry: AccountId);
+    ///
+    fn change_near_ibc_contract(&mut self, nearibc_contract: AccountId);
+    ///
     fn set_reward_token_contract(&mut self, account_id: AccountId);
     ///
     fn remove_oldest_validator_set(&mut self) -> String;
@@ -12,6 +16,24 @@ pub trait SudoActions {
 
 #[near_bindgen]
 impl SudoActions for AppchainAnchor {
+    //
+    fn change_appchain_registry(&mut self, appchain_registry: AccountId) {
+        self.assert_owner();
+        assert!(
+            !self.appchain_registry.eq(&appchain_registry),
+            "Appchain registry is not changed.",
+        );
+        self.appchain_registry = appchain_registry;
+    }
+    //
+    fn change_near_ibc_contract(&mut self, near_ibc_contract: AccountId) {
+        self.assert_owner();
+        assert!(
+            !self.near_ibc_contract.eq(&near_ibc_contract),
+            "NearIBC contract is not changed.",
+        );
+        self.near_ibc_contract = near_ibc_contract;
+    }
     //
     fn set_reward_token_contract(&mut self, account_id: AccountId) {
         self.assert_owner();

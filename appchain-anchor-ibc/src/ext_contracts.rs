@@ -45,5 +45,10 @@ pub trait NearIbcContract {
     );
     /// Start sending vsc packet from `near-ibc` contract to the appchain
     /// corresponding to this contract.
-    fn send_vsc_packet(&mut self, vsc_packet_data: VscPacketData);
+    fn send_vsc_packet(
+        &mut self,
+        chain_id: ChainId,
+        vsc_packet_data: VscPacketData,
+        timeout_timestamp_interval: U64,
+    );
 }
