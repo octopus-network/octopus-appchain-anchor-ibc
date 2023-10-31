@@ -264,26 +264,3 @@ impl IndexedAndClearable for ValidatorSet {
         self.clear(max_gas)
     }
 }
-
-impl From<ValidatorSet> for ValidatorSetView {
-    fn from(validator_set: ValidatorSet) -> Self {
-        Self {
-            id: U64::from(validator_set.id),
-            validators: validator_set
-                .validator_id_set
-                .iter()
-                .map(|id| {
-                    if let Some(validator) = validator_set.validators.get(&id) {
-                        validator.clone()
-                    } else {
-                        unreachable!()
-                    }
-                })
-                .collect(),
-            total_stake: validator_set.total_stake,
-            sequence: U64::from(validator_set.sequence),
-            timestamp: validator_set.timestamp,
-            matured_on_appchain: validator_set.matured_in_appchain,
-        }
-    }
-}

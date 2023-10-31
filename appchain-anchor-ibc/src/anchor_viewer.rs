@@ -1,3 +1,5 @@
+use base64::Engine;
+
 use crate::*;
 
 pub trait AnchorViewer {
@@ -83,6 +85,43 @@ impl AnchorViewer for AppchainAnchor {
     fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView> {
         self.validator_set_histories
             .get(&index.0)
-            .map(|vs| vs.into())
+            .map(|vs| self.get_validator_set_view_of(&vs))
+    }
+}
+
+impl AppchainAnchor {
+    //
+    fn get_validator_set_view_of(&self, validator_set: &ValidatorSet) -> ValidatorSetView {
+        ValidatorSetView {
+            id: U64::from(validator_set.id()),
+            validators: validator_set
+                .get_validator_ids()
+                .iter()
+                .map(|id| {
+                    if let Some(validator) = validator_set.get_validator(&id) {
+                        ValidatorView {
+                            validator_id: validator.validator_id,
+                            total_stake: validator.total_stake,
+                            status: validator.status,
+                            registered_pubkey: self.validator_id_to_pubkey_map.get(&id).map_or(
+                                String::new(),
+                                |bytes| {
+                                    format!(
+                                        "ed25519:{}",
+                                        base64::engine::general_purpose::STANDARD.encode(&bytes)
+                                    )
+                                },
+                            ),
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                })
+                .collect(),
+            total_stake: validator_set.total_stake(),
+            sequence: U64::from(validator_set.sequence()),
+            timestamp: validator_set.timestamp(),
+            matured_on_appchain: validator_set.matured_in_appchain(),
+        }
     }
 }

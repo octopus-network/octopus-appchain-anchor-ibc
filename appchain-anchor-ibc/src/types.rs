@@ -1,4 +1,4 @@
-use crate::{validator_set::Validator, *};
+use crate::{validator_set::ValidatorStatus, *};
 use near_sdk::{IntoStorageKey, Timestamp};
 
 pub type AppchainId = String;
@@ -150,13 +150,26 @@ impl RemovingValidatorSetSteps {
     }
 }
 
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ValidatorView {
+    /// The validator's id in NEAR protocol.
+    pub validator_id: AccountId,
+    /// Total stake of the validator, including delegations of all delegators.
+    pub total_stake: Balance,
+    /// Whether the validator is slashed.
+    pub status: ValidatorStatus,
+    /// The public key the validator registered in anchor contract.
+    pub registered_pubkey: String,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ValidatorSetView {
     /// The id of the validator set.
     pub id: U64,
     /// All validators in this validator set.
-    pub validators: Vec<Validator>,
+    pub validators: Vec<ValidatorView>,
     /// Total stake of current set
     pub total_stake: Balance,
     /// The sequence of the validator set in restaking base contract.
