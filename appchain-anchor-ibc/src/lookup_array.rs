@@ -75,6 +75,23 @@ where
     pub fn contains(&self, index: &u64) -> bool {
         self.lookup_map.contains_key(index)
     }
+    ///
+    pub fn index_range(&self) -> IndexRange {
+        IndexRange {
+            start_index: U64::from(self.start_index),
+            end_index: U64::from(self.end_index),
+        }
+    }
+    ///
+    pub fn to_vec(&self) -> Vec<T> {
+        let mut results = Vec::<T>::new();
+        for index in self.start_index..self.end_index + 1 {
+            if let Some(record) = self.get(&index) {
+                results.push(record);
+            }
+        }
+        results
+    }
 }
 
 /// Change functions
@@ -108,13 +125,6 @@ where
         self.lookup_map.insert(index, record);
     }
     ///
-    pub fn index_range(&self) -> IndexRange {
-        IndexRange {
-            start_index: U64::from(self.start_index),
-            end_index: U64::from(self.end_index),
-        }
-    }
-    ///
     pub fn append(&mut self, record: &mut T) -> T {
         let index = if self.start_index == 0 && !self.lookup_map.contains_key(&0) {
             0
@@ -122,7 +132,7 @@ where
             self.end_index + 1
         };
         record.set_index(&index);
-        self.lookup_map.insert(&index, &record);
+        self.lookup_map.insert(&index, record);
         self.end_index = index;
         self.lookup_map.get(&index).unwrap()
     }

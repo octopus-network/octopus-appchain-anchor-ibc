@@ -180,7 +180,7 @@ pub struct ValidatorSetView {
     pub matured_on_appchain: bool,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AnchorDepositRewardMsg {
     pub consumer_chain_id: String,
@@ -188,12 +188,23 @@ pub struct AnchorDepositRewardMsg {
     pub sequence: U64,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RewardDistribution {
-    pub transfer_call_msg: AnchorDepositRewardMsg,
+    pub validator_set_id: U64,
     pub amount: U128,
     pub timestamp: Timestamp,
+}
+
+impl IndexedAndClearable for RewardDistribution {
+    //
+    fn set_index(&mut self, _index: &u64) {
+        ()
+    }
+    //
+    fn clear_extra_storage(&mut self, _max_gas: Gas) -> ProcessingResult {
+        ProcessingResult::Ok
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

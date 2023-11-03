@@ -20,10 +20,10 @@ use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet},
     env, ext_contract,
-    json_types::{U128, U64},
+    json_types::{Base64VecU8, U128, U64},
     log, near_bindgen,
     serde::{Deserialize, Serialize},
-    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue,
+    serde_json, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue,
 };
 use types::*;
 use validator_set::{ValidatorSet, ValidatorSetViewer};
@@ -92,7 +92,7 @@ pub struct AppchainAnchor {
     /// The state of the corresponding appchain.
     appchain_state: AppchainState,
     /// The pending rewards of validators which are not distributed yet.
-    pending_rewards: LazyOption<VecDeque<RewardDistribution>>,
+    pending_rewards: LookupArray<RewardDistribution>,
 }
 
 #[near_bindgen]
@@ -132,7 +132,7 @@ impl AppchainAnchor {
                 Some(&AnchorSettings::default()),
             ),
             appchain_state: AppchainState::Booting,
-            pending_rewards: LazyOption::new(StorageKey::PendingRewards, None),
+            pending_rewards: LookupArray::new(StorageKey::PendingRewards),
         }
     }
     //
@@ -232,4 +232,32 @@ pub fn calculate_address(public_key: &[u8]) -> Vec<u8> {
     let hash = env::sha256(public_key);
     let address = hash.get(..20);
     address.expect("Failed to get address from hash.").to_vec()
+}
+
+#[no_mangle]
+pub extern "C" fn remove_storage_keys() {
+    env::setup_panic_hook();
+    near_sdk::assert_self();
+    assert!(
+        !env::current_account_id().to_string().ends_with(".near"),
+        "This function can not be called on mainnet."
+    );
+
+    let input = env::input().unwrap();
+    //
+    #[derive(Serialize, Deserialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Args {
+        pub keys: Vec<String>,
+    }
+    //
+    let args: Args = serde_json::from_slice(&input).unwrap();
+    for key in args.keys {
+        let json_str = format!("\"{}\"", key);
+        log!(
+            "Remove key '{}': {}",
+            key,
+            env::storage_remove(&serde_json::from_str::<Base64VecU8>(&json_str).unwrap().0)
+        );
+    }
 }

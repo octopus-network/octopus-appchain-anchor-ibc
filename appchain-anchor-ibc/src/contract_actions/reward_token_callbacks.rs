@@ -17,17 +17,14 @@ impl RewardTokenCallbacks for AppchainAnchor {
             PromiseResult::Successful(_) => {
                 let anchor_settings = self.anchor_settings.get().unwrap();
                 self.locked_reward_token_amount -= anchor_settings.era_reward.0;
+                let max_gas = Gas::ONE_TERA.mul(10);
+                self.pending_rewards.remove_first(max_gas);
             }
             PromiseResult::Failed => {
-                let anchor_settings = self.anchor_settings.get().unwrap();
-                let mut pending_rewards = self.pending_rewards.get().unwrap_or_default();
-                pending_rewards.push_back(RewardDistribution {
-                    transfer_call_msg: deposit_msg,
-                    amount: anchor_settings.era_reward,
-                    timestamp: env::block_timestamp(),
-                });
-                self.pending_rewards.set(&pending_rewards);
-                log!("Failed to transfer reward tokens to LPOS market contract.");
+                log!(
+                    "Failed to transfer reward tokens to LPOS market contract for {:?}.",
+                    deposit_msg
+                );
             }
         }
     }

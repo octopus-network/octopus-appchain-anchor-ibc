@@ -74,12 +74,7 @@ impl AnchorViewer for AppchainAnchor {
     }
     //
     fn get_pending_rewards(&self) -> Vec<RewardDistribution> {
-        self.pending_rewards
-            .get()
-            .unwrap_or_default()
-            .iter()
-            .cloned()
-            .collect()
+        self.pending_rewards.to_vec()
     }
     //
     fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView> {
