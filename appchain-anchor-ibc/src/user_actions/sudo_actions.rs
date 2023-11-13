@@ -12,6 +12,8 @@ pub trait SudoActions {
     fn remove_oldest_validator_set(&mut self) -> String;
     ///
     fn remove_staged_wasm(&mut self);
+    ///
+    fn clear_pending_rewards(&mut self) -> ProcessingResult;
 }
 
 #[near_bindgen]
@@ -88,5 +90,10 @@ impl SudoActions for AppchainAnchor {
             "AnchorContractWasm: {}",
             env::storage_remove(&StorageKey::AnchorContractWasm.into_storage_key())
         );
+    }
+    //
+    fn clear_pending_rewards(&mut self) -> ProcessingResult {
+        self.assert_owner();
+        self.pending_rewards.clear(Gas::ONE_TERA.mul(170))
     }
 }

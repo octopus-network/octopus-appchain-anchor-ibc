@@ -25,6 +25,8 @@ Register appchain in Octopus Appchain Registry Contract with UI or cli command. 
 near call oct.beta_oct_relay.testnet ft_transfer_call '{"receiver_id":"registry.test_oct.testnet","amount":"1000000000000000000000","memo":null,"msg":"{\"RegisterAppchain\":{\"appchain_id\":\"oct-cosmos-1\",\"description\":\"octopus cosmos chain 1 description\",\"appchain_type\":\"Cosmos\",\"evm_chain_id\":null,\"website_url\":\"http://ddfs.dsdfs\",\"github_address\":\"https://jldfs.yoasdfasd\",\"contact_email\":\"joe@lksdf.com\",\"premined_wrapped_appchain_token_beneficiary\":\"riversyang.testnet\",\"premined_wrapped_appchain_token\":\"1000000000000000000000\",\"initial_supply_of_wrapped_appchain_token\":\"1000000000000000000000\",\"ido_amount_of_wrapped_appchain_token\":\"300000000000000000000\",\"initial_era_reward\":\"2000000000000000\",\"fungible_token_metadata\":{\"spec\":\"ft-1.0.0\",\"name\":\"joeToken\",\"symbol\":\"JOT\",\"icon\":null,\"reference\":null,\"reference_hash\":null,\"decimals\":18},\"custom_metadata\":{\"key1\":\"value1\"}}}"}' --accountId riversyang.testnet --depositYocto 1 --gas 200000000000000
 ```
 
+> Note: The `appchain id` used in registry contract, anchor contract and restaking base contract should NOT contain the revision number. For example, the `appchain id` in registry contract should be `oct-cosmos-1` instead of `oct-cosmos-1-0`. The revision number is managed in anchor contract and can be changed by `change_chain_revision_number` function. When interacting with near ibc contract, the revision number will be added automatically.
+
 Registry admin needs to pass the auditing for the appchain:
 
 ```bash
