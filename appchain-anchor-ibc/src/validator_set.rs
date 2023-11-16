@@ -33,6 +33,10 @@ pub enum ValidatorStatus {
     ///
     /// A validator with this status will not be sent to appchain in the next VSC packet.
     Slashed,
+    /// The validator is not qualified to be a validator.
+    ///
+    /// Normally, the staking amount of the validator is less than the minimum staking amount.
+    Unqualified,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Deserialize, Serialize, Clone)]
@@ -107,14 +111,19 @@ impl ValidatorSet {
         }
     }
     ///
-    pub fn add_validator(&mut self, validator_id: AccountId, stake: Balance) {
+    pub fn add_validator(
+        &mut self,
+        validator_id: AccountId,
+        stake: Balance,
+        status: ValidatorStatus,
+    ) {
         if self.validator_id_set.insert(&validator_id) {
             self.validators.insert(
                 &validator_id,
                 &Validator {
                     validator_id: validator_id.clone(),
                     total_stake: stake,
-                    status: ValidatorStatus::Active,
+                    status,
                 },
             );
             self.total_stake += stake;

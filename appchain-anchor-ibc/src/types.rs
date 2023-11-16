@@ -43,6 +43,8 @@ pub struct AnchorSettings {
     pub min_interval_for_new_validator_set: U64,
     /// The timeout interval for vsc packet (in nanoseconds).
     pub vsc_packet_timeout_interval: U64,
+    /// The minimum staking amount of a quliafied validator.
+    pub min_validator_staking_amount: U128,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

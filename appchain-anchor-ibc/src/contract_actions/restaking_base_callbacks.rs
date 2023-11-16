@@ -1,4 +1,4 @@
-use crate::{ext_contracts::RestakingBaseValidatorSet, *};
+use crate::{ext_contracts::RestakingBaseValidatorSet, validator_set::ValidatorStatus, *};
 use near_sdk::PromiseResult;
 
 #[ext_contract(ext_restaking_base_callbacks)]
@@ -62,9 +62,22 @@ impl AppchainAnchor {
                 .map_or(0, |vs| vs.id() + 1),
             restaking_base_vs.sequence.0,
         );
+        let anchor_settings = self.anchor_settings.get().unwrap();
         for (validator_id, stake) in restaking_base_vs.validator_set {
-            validator_set.add_validator(validator_id, stake.0);
+            validator_set.add_validator(
+                validator_id,
+                stake.0,
+                match stake.0 >= anchor_settings.min_validator_staking_amount.0 {
+                    true => ValidatorStatus::Active,
+                    false => ValidatorStatus::Unqualified,
+                },
+            );
         }
+        assert!(
+            validator_set.active_validators().len() > 0,
+            "No qualified validator in new validator set with sequence '{}'.",
+            validator_set.sequence()
+        );
         validator_set
     }
 }

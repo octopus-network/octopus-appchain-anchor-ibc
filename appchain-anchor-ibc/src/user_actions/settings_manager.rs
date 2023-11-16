@@ -14,6 +14,8 @@ pub trait AnchorSettingsManager {
     fn change_min_interval_for_new_validator_set(&mut self, min_interval: U64);
     ///
     fn change_vsc_packet_timeout_interval(&mut self, interval: U64);
+    ///
+    fn change_min_validator_staking_amount(&mut self, amount: U128);
 }
 
 impl Default for AnchorSettings {
@@ -25,6 +27,7 @@ impl Default for AnchorSettings {
             min_length_of_validator_set_history: U64::from(100),
             min_interval_for_new_validator_set: U64::from(3600 * 1_000_000_000),
             vsc_packet_timeout_interval: U64::from(2400 * 1_000_000_000),
+            min_validator_staking_amount: U128::from(10_000_000_000_000_000_000_000_000_000),
         }
     }
 }
@@ -96,6 +99,17 @@ impl AnchorSettingsManager for AppchainAnchor {
             "The value is not changed."
         );
         anchor_settings.vsc_packet_timeout_interval = interval;
+        self.anchor_settings.set(&anchor_settings);
+    }
+    //
+    fn change_min_validator_staking_amount(&mut self, amount: U128) {
+        self.assert_owner();
+        let mut anchor_settings = self.anchor_settings.get().unwrap();
+        assert!(
+            amount.0 != anchor_settings.min_validator_staking_amount.0,
+            "The value is not changed."
+        );
+        anchor_settings.min_validator_staking_amount = amount;
         self.anchor_settings.set(&anchor_settings);
     }
 }
