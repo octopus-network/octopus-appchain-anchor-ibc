@@ -96,7 +96,8 @@ impl AppchainAnchor {
                     if let Some(validator) = validator_set.get_validator(&id) {
                         ValidatorView {
                             validator_id: validator.validator_id,
-                            total_stake: validator.total_stake,
+                            total_stake: validator.total_stake.into(),
+                            voting_power: U64::from((validator.total_stake / NEAR_SCALE) as u64),
                             status: validator.status,
                             registered_pubkey: self.validator_id_to_pubkey_map.get(&id).map_or(
                                 String::new(),
@@ -113,7 +114,7 @@ impl AppchainAnchor {
                     }
                 })
                 .collect(),
-            total_stake: validator_set.total_stake(),
+            total_stake: validator_set.total_stake().into(),
             sequence: U64::from(validator_set.sequence()),
             timestamp: validator_set.timestamp(),
             matured_on_appchain: validator_set.matured_in_appchain(),

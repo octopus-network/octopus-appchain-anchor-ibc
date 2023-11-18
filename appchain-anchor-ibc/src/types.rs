@@ -158,7 +158,9 @@ pub struct ValidatorView {
     /// The validator's id in NEAR protocol.
     pub validator_id: AccountId,
     /// Total stake of the validator, including delegations of all delegators.
-    pub total_stake: Balance,
+    pub total_stake: U128,
+    /// The voting power of the validator.
+    pub voting_power: U64,
     /// Whether the validator is slashed.
     pub status: ValidatorStatus,
     /// The public key the validator registered in anchor contract.
@@ -173,7 +175,7 @@ pub struct ValidatorSetView {
     /// All validators in this validator set.
     pub validators: Vec<ValidatorView>,
     /// Total stake of current set
-    pub total_stake: Balance,
+    pub total_stake: U128,
     /// The sequence of the validator set in restaking base contract.
     pub sequence: U64,
     ///
