@@ -43,7 +43,7 @@ impl PermissionlessActions for AppchainAnchor {
     fn send_vsc_packet_to_appchain(&mut self) {
         assert!(
             self.appchain_state == AppchainState::Active,
-            "Please go live first."
+            "The state of appchain must be 'Active'."
         );
         if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
             ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(

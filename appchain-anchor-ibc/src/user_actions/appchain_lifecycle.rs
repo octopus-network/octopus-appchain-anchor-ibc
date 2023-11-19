@@ -1,6 +1,7 @@
 use crate::{
     anchor_viewer::AnchorViewer,
     ext_contracts::{ext_near_ibc, TmConsensusState},
+    permissonless_actions::PermissionlessActions,
     *,
 };
 use core::time::Duration;
@@ -136,6 +137,7 @@ impl AppchainLifecycleManager for AppchainAnchor {
         );
         self.appchain_state = AppchainState::Active;
         self.sync_state_to_registry();
+        self.send_vsc_packet_to_appchain();
     }
 }
 

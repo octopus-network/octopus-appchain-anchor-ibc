@@ -203,20 +203,16 @@ hermes start
 
 ### Send initial validator set to appchain to confirm the connection
 
-When all of the above steps are done, we can change the appchain state in anchor contract to `Active` by calling:
+When all of the above steps are done, we can activate the consumer chain by calling:
 
 ```bash
 near call $ANCHOR_ACCOUNT_ID change_era_reward '{"era_reward":"xxxxxxxxxxxx"}' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
 near call $ANCHOR_ACCOUNT_ID go_live '' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
 ```
 
-Then we need to send the initial validator set to the consumer chain to actually active it.
+> The `go_live` function will send the initial validator set to the consumer chain to actually activate it.
 
-```bash
-near call $ANCHOR_ACCOUNT_ID send_vsc_packet_to_appchain '' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
-```
-
-We can check the transactions in the NEAR explorer to confirm that the VSC packet has been successfully sent to the appchain. Additionally, consumer packets with `NotifyRewardsPacketData` will be processed by the near ibc contract periodically and successfully.
+We can verify the successful transmission of the VSC packet to the appchain by examining the transactions in the NEAR explorer. Once the initial VSC packet is acknowledged by the consumer chain, it will commence the dispatch of 'notify rewards' packets to the NEAR IBC contract. It is essential to periodically monitor the NEAR IBC contract to ensure that it is processing the consumer packets, specifically those with `NotifyRewardsPacketData`, both efficiently and effectively.
 
 ### Transfer reward token to appchain anchor account
 
