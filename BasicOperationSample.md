@@ -68,6 +68,12 @@ Register consumer chain in Restaking Base contract with the consumer chain gover
 near call $RESTAKING_BASE register_consumer_chain '{"register_param":{"consumer_chain_id":"cosmos:oct-cosmos-1","cc_pos_account":"oct-cosmos-1.registry.test_oct.testnet","unbond_period":86400,"website":"https://jldfs.yoasdfasd","treasury":"riversyang.testnet"}}' --accountId riversyang.testnet --deposit 0.1 --gas 200000000000000
 ```
 
+After registering, we also need to sync the consumer chain info from restaking base contract to lpos market contract. This command can be called by any account:
+
+```bash
+near call $LPOS_MARKET sync_consumer_chain_pos '{"consumer_chain_id":"cosmos:oct-cosmos-1"}' --accountId my-account.testnet --gas 200000000000000
+```
+
 Then the validators in the restaking base contract can restake to the consumer chain by bonding their pubkeys in consumer chain in Octopus LPOS market contract. The key bonded here should be the same as the key used in the validator node for the consumer chain. For example:
 
 ```bash
@@ -75,12 +81,6 @@ near call $LPOS_MARKET bond '{"consumer_chain_id":"cosmos:oct-cosmos-1","key":"e
 ```
 
 > Note: The key bonded here must be in base64 format and must start with `ed25519:`.
-
-We also need to sync the consumer chain info from restaking base contract to lpos market contract. This command can be called by any account:
-
-```bash
-near call $LPOS_MARKET sync_consumer_chain_pos '{"consumer_chain_id":"cosmos:oct-cosmos-1"}' --accountId my-account.testnet --gas 200000000000000
-```
 
 ### Fetch initial validator set from restaking base contract
 
@@ -203,7 +203,14 @@ hermes start
 
 ### Send initial validator set to appchain to confirm the connection
 
-The following command will send the latest validator set (which is the validator set 0 at this time) to appchain.
+When all of the above steps are done, we can change the appchain state in anchor contract to `Active` by calling:
+
+```bash
+near call $ANCHOR_ACCOUNT_ID change_era_reward '{"era_reward":"xxxxxxxxxxxx"}' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
+near call $ANCHOR_ACCOUNT_ID go_live '' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
+```
+
+Then we need to send the initial validator set to the consumer chain to actually active it.
 
 ```bash
 near call $ANCHOR_ACCOUNT_ID send_vsc_packet_to_appchain '' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
