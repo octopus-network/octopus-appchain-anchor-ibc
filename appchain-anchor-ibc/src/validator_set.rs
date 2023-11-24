@@ -99,7 +99,7 @@ impl ValidatorSet {
     ///
     pub fn new(id: u64, sequence: u64) -> Self {
         Self {
-            id: 0,
+            id: id,
             validator_id_set: UnorderedSet::new(
                 StorageKey::ValidatorIdSetOf(id).into_storage_key(),
             ),
