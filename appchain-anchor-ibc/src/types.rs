@@ -184,6 +184,12 @@ pub struct ValidatorSetView {
     pub matured_on_appchain: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub enum FtTransferMessage {
+    AnchorDepositRewardMsg(AnchorDepositRewardMsg),
+}
+
 #[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AnchorDepositRewardMsg {
