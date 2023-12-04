@@ -85,11 +85,11 @@ impl PermissionlessActions for AppchainAnchor {
                 )
                 .as_str(),
             );
-        let msg = AnchorDepositRewardMsg {
+        let msg = FtTransferMessage::AnchorDepositRewardMsg(AnchorDepositRewardMsg {
             consumer_chain_id: format!("cosmos:{}", self.appchain_id.clone()),
             validator_set: validator_set.active_validators(),
             sequence: validator_set.sequence().into(),
-        };
+        });
         //
         ext_ft_core::ext(self.reward_token_contract.clone())
             .with_attached_deposit(1)
