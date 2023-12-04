@@ -208,6 +208,9 @@ where
                 self.start_index += 1;
             } else if *index == self.end_index && *index > self.start_index {
                 self.end_index -= 1;
+            } else if *index == self.start_index && *index == self.end_index {
+                self.start_index = 0;
+                self.end_index = 0;
             }
         }
         result
@@ -215,5 +218,80 @@ where
     ///
     pub fn remove_first(&mut self, max_gas: Gas) -> ProcessingResult {
         self.remove_at(&self.start_index.clone(), max_gas)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::{test_utils::VMContextBuilder, testing_env};
+
+    #[test]
+    fn test_lookup_array() {
+        let context = VMContextBuilder::new().build();
+        testing_env!(context.clone());
+        let max_gas = Gas::ONE_TERA.mul(10);
+        let mut lookup_array = LookupArray::<RewardDistribution>::new(StorageKey::PendingRewards);
+        // case 1
+        lookup_array.append(&mut RewardDistribution {
+            validator_set_id: U64::from(0),
+            amount: U128::from(100),
+            timestamp: env::block_timestamp(),
+        });
+        lookup_array.append(&mut RewardDistribution {
+            validator_set_id: U64::from(1),
+            amount: U128::from(101),
+            timestamp: env::block_timestamp(),
+        });
+        assert_eq!(lookup_array.len(), 2);
+        assert_eq!(lookup_array.index_range().start_index, U64::from(0));
+        assert_eq!(lookup_array.index_range().end_index, U64::from(1));
+        assert_eq!(
+            lookup_array.get_first().unwrap().validator_set_id,
+            U64::from(0)
+        );
+        lookup_array.remove_first(max_gas);
+        assert_eq!(lookup_array.len(), 1);
+        assert_eq!(lookup_array.index_range().start_index, U64::from(1));
+        assert_eq!(lookup_array.index_range().end_index, U64::from(1));
+        lookup_array.remove_first(max_gas);
+        assert_eq!(lookup_array.len(), 0);
+        assert_eq!(lookup_array.index_range().start_index, U64::from(0));
+        assert_eq!(lookup_array.index_range().end_index, U64::from(0));
+        // case 2
+        lookup_array.append(&mut RewardDistribution {
+            validator_set_id: U64::from(0),
+            amount: U128::from(100),
+            timestamp: env::block_timestamp(),
+        });
+        lookup_array.append(&mut RewardDistribution {
+            validator_set_id: U64::from(1),
+            amount: U128::from(101),
+            timestamp: env::block_timestamp(),
+        });
+        lookup_array.append(&mut RewardDistribution {
+            validator_set_id: U64::from(2),
+            amount: U128::from(102),
+            timestamp: env::block_timestamp(),
+        });
+        assert_eq!(lookup_array.len(), 3);
+        assert_eq!(lookup_array.index_range().start_index, U64::from(0));
+        assert_eq!(lookup_array.index_range().end_index, U64::from(2));
+        assert_eq!(
+            lookup_array.get_first().unwrap().validator_set_id,
+            U64::from(0)
+        );
+        assert_eq!(
+            lookup_array.get_latest().unwrap().validator_set_id,
+            U64::from(2)
+        );
+        lookup_array.clear(max_gas);
+        assert_eq!(lookup_array.len(), 0);
+        assert_eq!(lookup_array.index_range().start_index, U64::from(0));
+        assert_eq!(lookup_array.index_range().end_index, U64::from(0));
+        lookup_array.remove_first(max_gas);
+        assert_eq!(lookup_array.len(), 0);
+        assert_eq!(lookup_array.index_range().start_index, U64::from(0));
+        assert_eq!(lookup_array.index_range().end_index, U64::from(0));
     }
 }
