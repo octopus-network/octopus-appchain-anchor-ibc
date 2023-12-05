@@ -5,6 +5,8 @@ use near_sdk::PromiseResult;
 pub trait RewardTokenCallbacks {
     /// Callback function for `ft_transfer_call` of reward token contract
     fn ft_transfer_call_callback(&mut self, deposit_msg: FtTransferMessage, amount: U128);
+    ///
+    fn ft_balance_of_callback(&mut self);
 }
 
 #[near_bindgen]
@@ -47,6 +49,20 @@ impl RewardTokenCallbacks for AppchainAnchor {
                     "Failed to transfer reward tokens to LPOS market contract for {:?}.",
                     deposit_msg
                 );
+            }
+        }
+    }
+    //
+    fn ft_balance_of_callback(&mut self) {
+        near_sdk::assert_self();
+        match env::promise_result(0) {
+            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::Successful(bytes) => {
+                let balance: U128 = near_sdk::serde_json::from_slice(&bytes).unwrap();
+                self.locked_reward_token_amount = balance.0;
+            }
+            PromiseResult::Failed => {
+                log!("Failed to get balance of reward token.");
             }
         }
     }
