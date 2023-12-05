@@ -125,6 +125,11 @@ where
         self.lookup_map.insert(index, record);
     }
     ///
+    pub fn update_first(&mut self, record: &T) {
+        let index = self.start_index;
+        self.update(&index, record);
+    }
+    ///
     pub fn append(&mut self, record: &mut T) -> T {
         let index = if self.start_index == 0 && !self.lookup_map.contains_key(&0) {
             0
