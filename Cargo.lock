@@ -1214,13 +1214,14 @@ dependencies = [
 [[package]]
 name = "octopus-lpos"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopus-lpos-ibc.git?branch=main#fb8f861dae48f73e3bbf47db40150df0cc610462"
+source = "git+https://github.com/octopus-network/octopus-lpos-ibc.git?branch=main#3708ff04780ab8ba84a8ef147b7f5d154f3bcd68"
 dependencies = [
  "displaydoc",
  "ibc",
  "ibc-proto",
  "serde",
  "serde_json",
+ "subtle-encoding",
  "tendermint",
  "tendermint-proto",
 ]

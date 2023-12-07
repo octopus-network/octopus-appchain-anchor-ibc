@@ -1,4 +1,5 @@
-use crate::*;
+use crate::{contract_actions::reward_token_callbacks::ext_reward_token_callbacks, *};
+use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::IntoStorageKey;
 
 pub trait SudoActions {
@@ -14,6 +15,8 @@ pub trait SudoActions {
     fn remove_staged_wasm(&mut self);
     ///
     fn clear_pending_rewards(&mut self) -> ProcessingResult;
+    ///
+    fn update_locked_reward_token_balance(&mut self);
 }
 
 #[near_bindgen]
@@ -95,5 +98,14 @@ impl SudoActions for AppchainAnchor {
     fn clear_pending_rewards(&mut self) -> ProcessingResult {
         self.assert_owner();
         self.pending_rewards.clear(Gas::ONE_TERA.mul(170))
+    }
+    //
+    fn update_locked_reward_token_balance(&mut self) {
+        self.assert_owner();
+        ext_ft_core::ext(self.reward_token_contract.clone())
+            .ft_balance_of(env::current_account_id())
+            .then(
+                ext_reward_token_callbacks::ext(env::current_account_id()).ft_balance_of_callback(),
+            );
     }
 }

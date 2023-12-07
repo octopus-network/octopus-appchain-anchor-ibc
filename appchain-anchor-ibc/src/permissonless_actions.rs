@@ -102,7 +102,7 @@ impl PermissionlessActions for AppchainAnchor {
             )
             .then(
                 ext_reward_token_callbacks::ext(env::current_account_id())
-                    .ft_transfer_call_callback(msg),
+                    .ft_transfer_call_callback(msg, reward_distribution.amount),
             );
         ProcessingResult::NeedMoreGas
     }
