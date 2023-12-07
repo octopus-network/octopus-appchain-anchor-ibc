@@ -40,9 +40,9 @@ impl NearIbcActions for AppchainAnchor {
                 )
                 .as_str(),
             );
-        match slach_packet_data.infraction {
-            1 => validator_set.jail_validator(&validator_id),
-            2 => {
+        match slach_packet_data.infraction.as_str() {
+            "INFRACTION_DOWNTIME" => validator_set.jail_validator(&validator_id),
+            "INFRACTION_DOUBLE_SIGN" => {
                 let validator = validator_set.get_validator(&validator_id).expect(
                     format!(
                         "Validator for address {:?} is not found in validator set {}.",
