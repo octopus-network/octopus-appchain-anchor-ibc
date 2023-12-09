@@ -5,6 +5,7 @@ pub type AppchainId = String;
 
 /// The state of an appchain
 #[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize, Debug, PartialEq)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub enum AppchainState {
     /// The initial state of an appchain, after it is successfully registered.
@@ -27,6 +28,7 @@ pub enum AppchainState {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct AnchorSettings {
     /// The revision number of corresponding appchain.
@@ -125,6 +127,7 @@ impl ProcessingResult {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum RemovingValidatorSetSteps {
     ClearingOldestValidatorSet,
 }
@@ -134,7 +137,7 @@ impl RemovingValidatorSetSteps {
     pub fn save(&self) {
         env::storage_write(
             &StorageKey::RemovingValidatorSetSteps.into_storage_key(),
-            &self.try_to_vec().unwrap(),
+            &near_sdk::borsh::to_vec(self).unwrap(),
         );
     }
     ///
@@ -191,6 +194,7 @@ pub enum FtTransferMessage {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize, Debug)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct AnchorDepositRewardMsg {
     pub consumer_chain_id: String,
@@ -199,6 +203,7 @@ pub struct AnchorDepositRewardMsg {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize, Debug)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct RewardDistribution {
     pub validator_set_id: U64,

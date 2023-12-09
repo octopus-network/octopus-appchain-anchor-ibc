@@ -1,5 +1,5 @@
 use crate::*;
-use ibc::clients::ics07_tendermint::client_state::ClientState as TmClientState;
+use ibc::core::client::types::Height;
 use tendermint::{time::Time as TmTime, Hash};
 
 #[derive(Serialize, Deserialize)]
@@ -37,10 +37,16 @@ pub trait RestakingBaseContract {
 
 #[ext_contract(ext_near_ibc)]
 pub trait NearIbcContract {
-    /// Create client in `near-ibc` contract for the appchain corresponding to this contract.
-    fn create_client_for_appchain(
+    /// Create tendermint client in `near-ibc` contract for the appchain corresponding to
+    /// this contract.
+    fn create_tendermint_client_for_appchain(
         &mut self,
-        client_state: TmClientState,
+        chain_id: ChainId,
+        initial_height: Height,
+        trusting_period: U64,
+        unbonding_period: U64,
+        max_clock_drift: U64,
+        upgrade_path: Vec<String>,
         consensus_state: TmConsensusState,
     );
     /// Start sending vsc packet from `near-ibc` contract to the appchain

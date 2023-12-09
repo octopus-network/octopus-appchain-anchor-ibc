@@ -15,12 +15,11 @@ impl RewardTokenCallbacks for AppchainAnchor {
     fn ft_transfer_call_callback(&mut self, deposit_msg: FtTransferMessage, amount: U128) {
         near_sdk::assert_self();
         match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
             PromiseResult::Successful(bytes) => {
                 let accepted_amount: U128 = near_sdk::serde_json::from_slice(&bytes).unwrap();
                 if accepted_amount.0 == amount.0 {
                     self.locked_reward_token_amount -= amount.0;
-                    let max_gas = Gas::ONE_TERA.mul(10);
+                    let max_gas = Gas::from_tgas(10);
                     self.pending_rewards.remove_first(max_gas);
                 } else {
                     if accepted_amount.0 > 0 {
@@ -56,7 +55,6 @@ impl RewardTokenCallbacks for AppchainAnchor {
     fn ft_balance_of_callback(&mut self) {
         near_sdk::assert_self();
         match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
             PromiseResult::Successful(bytes) => {
                 let balance: U128 = near_sdk::serde_json::from_slice(&bytes).unwrap();
                 self.locked_reward_token_amount = balance.0;

@@ -29,11 +29,7 @@ pub trait AnchorViewer {
 impl AnchorViewer for AppchainAnchor {
     //
     fn get_chain_id(&self) -> ChainId {
-        ChainId::new(
-            self.appchain_id.as_str(),
-            self.anchor_settings.get().unwrap().chain_revision_number.0,
-        )
-        .expect("INVALID_CHAIN_ID, should not happen")
+        ChainId::new(self.appchain_id.as_str()).expect("INVALID_CHAIN_ID, should not happen")
     }
     //
     fn get_anchor_version(&self) -> String {
@@ -70,7 +66,7 @@ impl AnchorViewer for AppchainAnchor {
     }
     //
     fn get_storage_balance(&self) -> U128 {
-        U128::from(u128::from(env::storage_usage()) * env::storage_byte_cost())
+        U128::from(u128::from(env::storage_usage()) * env::storage_byte_cost().as_yoctonear())
     }
     //
     fn get_pending_rewards(&self) -> Vec<RewardDistribution> {

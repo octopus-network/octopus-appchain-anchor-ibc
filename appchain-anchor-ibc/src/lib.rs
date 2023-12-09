@@ -1,4 +1,3 @@
-#![no_std]
 #![deny(
     warnings,
     trivial_casts,
@@ -15,16 +14,18 @@ extern crate std;
 use crate::prelude::*;
 use base64::{DecodeError, Engine};
 use core::ops::Mul;
-use ibc::core::ics24_host::identifier::ChainId;
+use ibc::core::host::types::identifiers::ChainId;
 use lookup_array::{IndexedAndClearable, LookupArray};
+use near_contract_standards::fungible_token::Balance;
 use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
+    borsh::{BorshDeserialize, BorshSerialize},
     collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet},
     env, ext_contract,
     json_types::{Base64VecU8, U128, U64},
     log, near_bindgen,
     serde::{Deserialize, Serialize},
-    serde_json, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue,
+    serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
+    PromiseOrValue,
 };
 use types::*;
 use validator_set::{ValidatorSet, ValidatorSetViewer};
@@ -51,6 +52,7 @@ const NEAR_SCALE: u128 = 1_000_000_000_000_000_000_000_000;
 
 /// Storage keys for collections of sub-struct in main contract
 #[derive(BorshDeserialize, BorshSerialize, BorshStorageKey, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     AnchorContractWasm,
     AnchorSettings,
@@ -65,6 +67,7 @@ pub enum StorageKey {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct AppchainAnchor {
     /// The id of corresponding appchain.
     appchain_id: AppchainId,
@@ -112,7 +115,7 @@ impl AppchainAnchor {
             "This contract must be deployed as a sub-account of octopus appchain registry.",
         );
         let (appchain_id, appchain_registry) = account_id.split_once(".").unwrap();
-        ChainId::new(appchain_id, 0).expect(
+        ChainId::new(appchain_id).expect(
             "Invalid account id for appchain anchor ibc. \
             The subaccount name is not valid in `ibc-rs`.",
         );
@@ -174,10 +177,6 @@ impl AppchainAnchor {
             "This function can only be called by near-ibc contract."
         )
     }
-}
-
-#[near_bindgen]
-impl AppchainAnchor {
     /// Callback function for `ft_transfer_call` of NEP-141 compatible contracts
     pub fn ft_on_transfer(
         &mut self,
@@ -221,8 +220,8 @@ impl AppchainAnchor {
             Promise::new(self.appchain_registry.clone()).function_call(
                 "sync_state_of".to_string(),
                 args,
-                0,
-                Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL),
+                NearToken::from_yoctonear(0),
+                Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL),
             );
         }
     }

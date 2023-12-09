@@ -9,6 +9,7 @@ pub trait IndexedAndClearable {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct LookupArray<T: BorshDeserialize + BorshSerialize + Debug + IndexedAndClearable> {
     /// The anchor event data map.
     pub lookup_map: LookupMap<u64, T>,
@@ -189,7 +190,7 @@ where
         while index <= self.end_index && self.remove_at(&index, max_gas).is_ok() {
             index += 1;
         }
-        if env::used_gas() > Gas::ONE_TERA.mul(T_GAS_CAP_FOR_MULTI_TXS_PROCESSING) {
+        if env::used_gas() > Gas::from_tgas(T_GAS_CAP_FOR_MULTI_TXS_PROCESSING) {
             self.start_index = index;
             ProcessingResult::NeedMoreGas
         } else {
@@ -205,7 +206,8 @@ where
                 let result = record.clear_extra_storage(max_gas);
                 match result {
                     ProcessingResult::Ok => {
-                        self.lookup_map.remove_raw(&index.try_to_vec().unwrap());
+                        self.lookup_map
+                            .remove_raw(&near_sdk::borsh::to_vec(index).unwrap());
                     }
                     ProcessingResult::NeedMoreGas => {
                         self.lookup_map.insert(index, &record);
@@ -243,7 +245,7 @@ mod tests {
     fn test_lookup_array() {
         let context = VMContextBuilder::new().build();
         testing_env!(context.clone());
-        let max_gas = Gas::ONE_TERA.mul(10);
+        let max_gas = Gas::from_tgas(10);
         let mut lookup_array = LookupArray::<RewardDistribution>::new(StorageKey::PendingRewards);
         // case 1
         lookup_array.append(&mut RewardDistribution {

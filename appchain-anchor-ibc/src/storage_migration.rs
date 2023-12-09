@@ -1,9 +1,14 @@
 use crate::*;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
-use near_sdk::{env, near_bindgen, AccountId, Balance, IntoStorageKey};
+use near_sdk::{env, near_bindgen, AccountId, IntoStorageKey};
+
+pub trait StorageMigration {
+    fn migrate_state() -> Self;
+}
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct OldAnchorSettings {
     /// The revision number of corresponding appchain.
@@ -23,6 +28,7 @@ pub struct OldAnchorSettings {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct OldAppchainAnchor {
     /// The id of corresponding appchain.
     appchain_id: AppchainId,
@@ -55,9 +61,9 @@ pub struct OldAppchainAnchor {
 }
 
 #[near_bindgen]
-impl AppchainAnchor {
+impl StorageMigration for AppchainAnchor {
     #[init(ignore_state)]
-    pub fn migrate_state() -> Self {
+    fn migrate_state() -> Self {
         // Deserialize the state using the old contract structure.
         let old_contract: OldAppchainAnchor = env::state_read().expect("Old state doesn't exist");
         //
@@ -95,7 +101,7 @@ pub fn get_storage_key_in_lookup_array<T: BorshSerialize>(
     index: &T,
 ) -> Vec<u8> {
     let mut result = prefix.clone().into_storage_key();
-    result.extend(index.try_to_vec().unwrap());
+    result.extend(near_sdk::borsh::to_vec(index).unwrap());
     result
 }
 

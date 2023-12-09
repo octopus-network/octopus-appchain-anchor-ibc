@@ -1,9 +1,7 @@
 use crate::*;
+use near_sdk::{env, json_types::Base58CryptoHash, IntoStorageKey, NearToken};
 
-use near_sdk::json_types::Base58CryptoHash;
-use near_sdk::{env, IntoStorageKey};
-
-const GAS_FOR_UPGRADE_SELF_DEPLOY: Gas = Gas(15_000_000_000_000);
+const GAS_FOR_UPGRADE_SELF_DEPLOY: Gas = Gas::from_tgas(15);
 
 /// Stores attached data into blob store and returns hash of it.
 /// Implemented to avoid loading the data into WASM for optimal gas usage.
@@ -16,9 +14,9 @@ pub extern "C" fn store_wasm_of_self() {
     let sha256_hash = env::sha256(&input);
 
     let blob_len = input.len();
-    let storage_cost = ((blob_len + 32) as u128) * env::storage_byte_cost();
+    let storage_cost = ((blob_len + 32) as u128) * env::storage_byte_cost().as_yoctonear();
     assert!(
-        env::attached_deposit() >= storage_cost,
+        env::attached_deposit().as_yoctonear() >= storage_cost,
         "ERR_NOT_ENOUGH_DEPOSIT:{}",
         storage_cost
     );
@@ -47,7 +45,11 @@ pub fn update_self() {
         promise_id,
         "migrate_state",
         &[],
-        0,
-        env::prepaid_gas() - env::used_gas() - GAS_FOR_UPGRADE_SELF_DEPLOY,
+        NearToken::from_yoctonear(0),
+        env::prepaid_gas()
+            .checked_sub(env::used_gas())
+            .expect("Prepaid gas is too little.")
+            .checked_sub(GAS_FOR_UPGRADE_SELF_DEPLOY)
+            .expect("Prepaid gas is too little."),
     );
 }
