@@ -23,6 +23,8 @@ pub trait AnchorViewer {
     fn get_pending_rewards(&self) -> Vec<RewardDistribution>;
     /// Get validator set history by index.
     fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView>;
+    /// Get all registered addresses of validators.
+    fn get_registered_addresses(&self) -> Vec<(String, String)>;
 }
 
 #[near_bindgen]
@@ -77,6 +79,18 @@ impl AnchorViewer for AppchainAnchor {
         self.validator_set_histories
             .get(&index.0)
             .map(|vs| self.get_validator_set_view_of(&vs))
+    }
+    //
+    fn get_registered_addresses(&self) -> Vec<(String, String)> {
+        self.validator_address_to_id_map
+            .iter()
+            .map(|(address, id)| {
+                (
+                    base64::engine::general_purpose::STANDARD.encode(&address),
+                    id.to_string(),
+                )
+            })
+            .collect()
     }
 }
 
