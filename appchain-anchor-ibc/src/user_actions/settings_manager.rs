@@ -80,25 +80,27 @@ impl AnchorSettingsManager for AppchainAnchor {
         self.anchor_settings.set(&anchor_settings);
     }
     //
-    fn change_min_interval_for_new_validator_set(&mut self, min_interval: U64) {
+    fn change_min_interval_for_new_validator_set(&mut self, min_interval_secs: U64) {
         self.assert_owner();
         let mut anchor_settings = self.anchor_settings.get().unwrap();
+        let min_interval = min_interval_secs.0 * 1_000_000_000;
         assert!(
-            min_interval.0 != anchor_settings.min_interval_for_new_validator_set.0,
+            min_interval != anchor_settings.min_interval_for_new_validator_set.0,
             "The value is not changed."
         );
-        anchor_settings.min_interval_for_new_validator_set = min_interval;
+        anchor_settings.min_interval_for_new_validator_set = U64::from(min_interval);
         self.anchor_settings.set(&anchor_settings);
     }
     //
-    fn change_vsc_packet_timeout_interval(&mut self, interval: U64) {
+    fn change_vsc_packet_timeout_interval(&mut self, interval_secs: U64) {
         self.assert_owner();
         let mut anchor_settings = self.anchor_settings.get().unwrap();
+        let interval = interval_secs.0 * 1_000_000_000;
         assert!(
-            interval.0 != anchor_settings.vsc_packet_timeout_interval.0,
+            interval != anchor_settings.vsc_packet_timeout_interval.0,
             "The value is not changed."
         );
-        anchor_settings.vsc_packet_timeout_interval = interval;
+        anchor_settings.vsc_packet_timeout_interval = U64::from(interval);
         self.anchor_settings.set(&anchor_settings);
     }
     //
