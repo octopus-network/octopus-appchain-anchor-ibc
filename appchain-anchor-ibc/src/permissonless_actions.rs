@@ -24,7 +24,7 @@ impl PermissionlessActions for AppchainAnchor {
     //
     fn fetch_validator_set_from_restaking_base(&mut self) {
         let anchor_settings = self.anchor_settings.get().unwrap();
-        if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
+        if let Some(latest_validator_set) = self.validator_set_histories.get_last() {
             assert!(
                 env::block_timestamp() - latest_validator_set.timestamp()
                     > anchor_settings.min_interval_for_new_validator_set.0,
@@ -45,10 +45,13 @@ impl PermissionlessActions for AppchainAnchor {
             self.appchain_state == AppchainState::Active,
             "The state of appchain must be 'Active'."
         );
-        if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
+        if let Some(latest_validator_set) = self.validator_set_histories.get_last() {
             ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
                 self.get_chain_id(),
-                self.generate_vsc_packet_data(&latest_validator_set),
+                self.generate_vsc_packet_data(
+                    &latest_validator_set,
+                    &self.validator_set_histories.get_second_last(),
+                ),
                 self.anchor_settings
                     .get()
                     .unwrap()
@@ -109,8 +112,12 @@ impl PermissionlessActions for AppchainAnchor {
 }
 
 impl AppchainAnchor {
-    fn generate_vsc_packet_data(&self, validator_set: &ValidatorSet) -> VscPacketData {
-        let validator_pubkeys = validator_set
+    fn generate_vsc_packet_data(
+        &self,
+        validator_set: &ValidatorSet,
+        previous_vs: &Option<ValidatorSet>,
+    ) -> VscPacketData {
+        let vs_pubkeys = validator_set
             .active_validators()
             .iter()
             .map(|(validator_id, stake)| ValidatorKeyAndPower {
@@ -118,7 +125,40 @@ impl AppchainAnchor {
                 power: U64::from((stake.0 / NEAR_SCALE) as u64),
             })
             .filter(|vkp| vkp.power.0 > 0)
-            .collect();
+            .collect::<Vec<ValidatorKeyAndPower>>();
+        let validator_pubkeys = match previous_vs {
+            Some(previous_vs) => {
+                let mut previous_vs_pubkeys = previous_vs
+                    .active_validators()
+                    .iter()
+                    .map(|(validator_id, stake)| ValidatorKeyAndPower {
+                        public_key: self.validator_id_to_pubkey_map.get(&validator_id).unwrap(),
+                        power: U64::from((stake.0 / NEAR_SCALE) as u64),
+                    })
+                    .filter(|vkp| vkp.power.0 > 0)
+                    .collect::<Vec<ValidatorKeyAndPower>>();
+                for pvkp in &mut previous_vs_pubkeys {
+                    if vs_pubkeys
+                        .iter()
+                        .find(|vkp| vkp.public_key == pvkp.public_key)
+                        .is_none()
+                    {
+                        pvkp.power = U64::from(0);
+                    }
+                }
+                vs_pubkeys.iter().for_each(|vkp| {
+                    if previous_vs_pubkeys
+                        .iter()
+                        .find(|pvkp| pvkp.public_key == vkp.public_key)
+                        .is_none()
+                    {
+                        previous_vs_pubkeys.push(vkp.clone());
+                    }
+                });
+                previous_vs_pubkeys.clone()
+            }
+            None => vs_pubkeys.clone(),
+        };
         let slashed_addresses = validator_set
             .slash_ack_validators()
             .iter()

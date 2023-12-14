@@ -42,8 +42,16 @@ where
         self.lookup_map.get(&self.start_index)
     }
     ///
-    pub fn get_latest(&self) -> Option<T> {
+    pub fn get_last(&self) -> Option<T> {
         self.lookup_map.get(&self.end_index)
+    }
+    ///
+    pub fn get_second_last(&self) -> Option<T> {
+        if self.end_index > 0 {
+            self.lookup_map.get(&(self.end_index - 1))
+        } else {
+            None
+        }
     }
     ///
     pub fn get_slice_of(&self, start_index: &u64, quantity: Option<u64>) -> Vec<T> {
@@ -287,7 +295,7 @@ mod tests {
             U64::from(0)
         );
         assert_eq!(
-            lookup_array.get_latest().unwrap().validator_set_id,
+            lookup_array.get_last().unwrap().validator_set_id,
             U64::from(2)
         );
         lookup_array.clear(max_gas);

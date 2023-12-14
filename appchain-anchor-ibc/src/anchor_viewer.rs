@@ -59,7 +59,7 @@ impl AnchorViewer for AppchainAnchor {
     fn get_anchor_status(&self) -> AnchorStatus {
         let latest_vs = self
             .validator_set_histories
-            .get_latest()
+            .get_last()
             .expect("No validator set history found.");
         AnchorStatus {
             total_stake: latest_vs.total_stake().into(),

@@ -199,7 +199,7 @@ impl AppchainAnchor {
 impl AppchainAnchor {
     ///
     pub fn sync_state_to_registry(&self) {
-        if let Some(latest_validator_set) = self.validator_set_histories.get_latest() {
+        if let Some(latest_validator_set) = self.validator_set_histories.get_last() {
             // sync state to appchain registry contract
             #[derive(near_sdk::serde::Serialize)]
             #[serde(crate = "near_sdk::serde")]

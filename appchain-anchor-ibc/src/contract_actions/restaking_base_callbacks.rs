@@ -34,7 +34,7 @@ impl RestakingBaseCallbacks for AppchainAnchor {
             PromiseResult::NotReady => unreachable!(),
             PromiseResult::Successful(value) => {
                 let slash_id = near_sdk::serde_json::from_slice::<U64>(&value).unwrap();
-                let mut latest_vs = self.validator_set_histories.get_latest().unwrap();
+                let mut latest_vs = self.validator_set_histories.get_last().unwrap();
                 latest_vs.wait_for_slashing_validator(&slash_items[0].0, slash_id);
                 log!(
                     "Slash request for {:?} is sent to restaking base contract.",
@@ -58,7 +58,7 @@ impl AppchainAnchor {
     ) -> ValidatorSet {
         let mut validator_set = ValidatorSet::new(
             self.validator_set_histories
-                .get_latest()
+                .get_last()
                 .map_or(0, |vs| vs.id() + 1),
             restaking_base_vs.sequence.0,
         );
