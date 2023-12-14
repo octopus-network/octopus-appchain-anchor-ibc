@@ -11,11 +11,11 @@ pub trait AnchorSettingsManager {
     ///
     fn change_min_length_of_validator_set_history(&mut self, min_length: U64);
     ///
-    fn change_min_interval_for_new_validator_set(&mut self, min_interval: U64);
+    fn change_min_interval_for_new_validator_set(&mut self, min_interval_secs: U64);
     ///
-    fn change_vsc_packet_timeout_interval(&mut self, interval: U64);
+    fn change_vsc_packet_timeout_interval(&mut self, interval_secs: U64);
     ///
-    fn change_min_validator_staking_amount(&mut self, amount: U128);
+    fn change_min_validator_staking_amount(&mut self, amount_in_near: U128);
 }
 
 impl Default for AnchorSettings {
@@ -104,14 +104,14 @@ impl AnchorSettingsManager for AppchainAnchor {
         self.anchor_settings.set(&anchor_settings);
     }
     //
-    fn change_min_validator_staking_amount(&mut self, amount: U128) {
+    fn change_min_validator_staking_amount(&mut self, amount_in_near: U128) {
         self.assert_owner();
         let mut anchor_settings = self.anchor_settings.get().unwrap();
         assert!(
-            amount.0 != anchor_settings.min_validator_staking_amount.0,
+            amount_in_near.0 != anchor_settings.min_validator_staking_amount.0 / NEAR_SCALE,
             "The value is not changed."
         );
-        anchor_settings.min_validator_staking_amount = amount;
+        anchor_settings.min_validator_staking_amount = U128::from(amount_in_near.0 * NEAR_SCALE);
         self.anchor_settings.set(&anchor_settings);
     }
 }
