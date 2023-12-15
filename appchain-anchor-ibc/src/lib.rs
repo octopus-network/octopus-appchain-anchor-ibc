@@ -13,6 +13,7 @@ extern crate alloc;
 extern crate std;
 
 use crate::prelude::*;
+use base64::{DecodeError, Engine};
 use core::ops::Mul;
 use ibc::core::ics24_host::identifier::ChainId;
 use lookup_array::{IndexedAndClearable, LookupArray};
@@ -225,6 +226,11 @@ impl AppchainAnchor {
             );
         }
     }
+}
+
+pub fn decode_ed25519_pubkey(key: &String) -> Result<Vec<u8>, DecodeError> {
+    let key = key.trim_start_matches("ed25519:");
+    base64::engine::general_purpose::STANDARD.decode(key)
 }
 
 /// The input param should be a public key in bytes.

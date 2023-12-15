@@ -41,25 +41,7 @@ impl PermissionlessActions for AppchainAnchor {
     }
     //
     fn send_vsc_packet_to_appchain(&mut self) {
-        assert!(
-            self.appchain_state == AppchainState::Active,
-            "The state of appchain must be 'Active'."
-        );
-        if let Some(latest_validator_set) = self.validator_set_histories.get_last() {
-            ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
-                self.get_chain_id(),
-                self.generate_vsc_packet_data(
-                    &latest_validator_set,
-                    &self.validator_set_histories.get_second_last(),
-                ),
-                self.anchor_settings
-                    .get()
-                    .unwrap()
-                    .vsc_packet_timeout_interval,
-            );
-        } else {
-            panic!("No validator set to send.");
-        }
+        self.send_vsc_packet(Vec::new());
     }
     //
     fn distribute_pending_rewards(&mut self) -> ProcessingResult {
@@ -112,10 +94,34 @@ impl PermissionlessActions for AppchainAnchor {
 }
 
 impl AppchainAnchor {
+    pub fn send_vsc_packet(&mut self, removing_addresses: Vec<String>) {
+        assert!(
+            self.appchain_state == AppchainState::Active,
+            "The state of appchain must be 'Active'."
+        );
+        if let Some(latest_validator_set) = self.validator_set_histories.get_last() {
+            ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
+                self.get_chain_id(),
+                self.generate_vsc_packet_data(
+                    &latest_validator_set,
+                    &self.validator_set_histories.get_second_last(),
+                    &removing_addresses,
+                ),
+                self.anchor_settings
+                    .get()
+                    .unwrap()
+                    .vsc_packet_timeout_interval,
+            );
+        } else {
+            panic!("No validator set to send.");
+        }
+    }
+    //
     fn generate_vsc_packet_data(
         &self,
         validator_set: &ValidatorSet,
         previous_vs: &Option<ValidatorSet>,
+        removing_addresses: &Vec<String>,
     ) -> VscPacketData {
         let vs_pubkeys = validator_set
             .active_validators()
@@ -126,7 +132,7 @@ impl AppchainAnchor {
             })
             .filter(|vkp| vkp.power.0 > 0)
             .collect::<Vec<ValidatorKeyAndPower>>();
-        let validator_pubkeys = match previous_vs {
+        let mut validator_pubkeys = match previous_vs {
             Some(previous_vs) => {
                 let mut previous_vs_pubkeys = previous_vs
                     .active_validators()
@@ -159,6 +165,13 @@ impl AppchainAnchor {
             }
             None => vs_pubkeys.clone(),
         };
+        for address in removing_addresses {
+            validator_pubkeys.push(ValidatorKeyAndPower {
+                public_key: decode_ed25519_pubkey(address)
+                    .expect(format!("Invalid removing address: {}", address).as_str()),
+                power: U64::from(0),
+            });
+        }
         let slashed_addresses = validator_set
             .slash_ack_validators()
             .iter()

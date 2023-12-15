@@ -17,6 +17,8 @@ pub trait SudoActions {
     fn clear_pending_rewards(&mut self) -> ProcessingResult;
     ///
     fn update_locked_reward_token_balance(&mut self);
+    ///
+    fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>);
 }
 
 #[near_bindgen]
@@ -107,5 +109,10 @@ impl SudoActions for AppchainAnchor {
             .then(
                 ext_reward_token_callbacks::ext(env::current_account_id()).ft_balance_of_callback(),
             );
+    }
+    //
+    fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>) {
+        self.assert_owner();
+        self.send_vsc_packet(removing_addresses);
     }
 }

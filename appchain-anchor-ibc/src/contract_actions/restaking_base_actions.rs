@@ -1,5 +1,4 @@
 use crate::*;
-use base64::{DecodeError, Engine};
 
 /// The interfaces for `restaking-base` contract to call.
 pub trait RestakingBaseActions {
@@ -20,7 +19,7 @@ impl RestakingBaseActions for AppchainAnchor {
     //
     fn bond(&mut self, staker_id: AccountId, key: String) {
         self.assert_restaking_base_contract();
-        match decode_pubkey(&key) {
+        match decode_ed25519_pubkey(&key) {
             Ok(public_key) => {
                 self.validator_id_to_pubkey_map
                     .insert(&staker_id, &public_key);
@@ -37,7 +36,7 @@ impl RestakingBaseActions for AppchainAnchor {
             .validator_id_to_pubkey_map
             .get(&staker_id)
             .expect("The staker is not bonded yet.");
-        match decode_pubkey(&key) {
+        match decode_ed25519_pubkey(&key) {
             Ok(public_key) => {
                 self.validator_id_to_pubkey_map
                     .insert(&staker_id, &public_key);
@@ -49,9 +48,4 @@ impl RestakingBaseActions for AppchainAnchor {
             Err(err) => panic!("Invalid public key: {:?}", err),
         };
     }
-}
-
-fn decode_pubkey(key: &String) -> Result<Vec<u8>, DecodeError> {
-    let key = key.trim_start_matches("ed25519:");
-    base64::engine::general_purpose::STANDARD.decode(key)
 }
