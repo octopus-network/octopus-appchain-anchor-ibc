@@ -31,7 +31,16 @@ pub trait AnchorViewer {
 impl AnchorViewer for AppchainAnchor {
     //
     fn get_chain_id(&self) -> ChainId {
-        ChainId::new(self.appchain_id.as_str()).expect("INVALID_CHAIN_ID, should not happen")
+        let anchor_settings = self.anchor_settings.get().unwrap();
+        ChainId::new(
+            format!(
+                "{}-{}",
+                self.appchain_id.as_str(),
+                anchor_settings.chain_revision_number.0
+            )
+            .as_str(),
+        )
+        .expect("INVALID_CHAIN_ID, should not happen")
     }
     //
     fn get_anchor_version(&self) -> String {
