@@ -13,7 +13,6 @@ extern crate std;
 
 use crate::prelude::*;
 use base64::{DecodeError, Engine};
-use core::ops::Mul;
 use ibc::core::host::types::identifiers::ChainId;
 use lookup_array::{IndexedAndClearable, LookupArray};
 use near_contract_standards::fungible_token::Balance;
