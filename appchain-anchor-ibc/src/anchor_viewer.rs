@@ -23,6 +23,8 @@ pub trait AnchorViewer {
     fn get_pending_rewards(&self) -> Vec<RewardDistribution>;
     /// Get validator set history by index.
     fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView>;
+    /// Get latest validator set history.
+    fn get_latest_validator_set(&self) -> Option<ValidatorSetView>;
     /// Get all registered addresses of validators.
     fn get_registered_addresses(&self) -> Vec<(String, String)>;
 }
@@ -87,6 +89,12 @@ impl AnchorViewer for AppchainAnchor {
     fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView> {
         self.validator_set_histories
             .get(&index.0)
+            .map(|vs| self.get_validator_set_view_of(&vs))
+    }
+    //
+    fn get_latest_validator_set(&self) -> Option<ValidatorSetView> {
+        self.validator_set_histories
+            .get_last()
             .map(|vs| self.get_validator_set_view_of(&vs))
     }
     //
