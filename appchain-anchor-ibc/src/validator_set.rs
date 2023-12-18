@@ -2,6 +2,7 @@ use crate::*;
 use near_sdk::{IntoStorageKey, Timestamp};
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Deserialize, Serialize, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub enum ValidatorStatus {
     /// A validator with this status will be sent to appchain in the next VSC packet.
@@ -40,6 +41,7 @@ pub enum ValidatorStatus {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Deserialize, Serialize, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct Validator {
     /// The validator's id in NEAR protocol.
@@ -51,6 +53,7 @@ pub struct Validator {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct ValidatorSet {
     /// The id of the validator set.
     id: u64,

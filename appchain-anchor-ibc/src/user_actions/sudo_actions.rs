@@ -60,7 +60,7 @@ impl SudoActions for AppchainAnchor {
             "The length of validator set histories must not be less than {}.",
             anchor_settings.min_length_of_validator_set_history.0
         );
-        let max_gas = Gas::ONE_TERA.mul(170);
+        let max_gas = Gas::from_tgas(170);
         let mut era_number = self.validator_set_histories.index_range().start_index;
         while env::used_gas() < max_gas && self.validator_set_histories.get(&era_number.0).is_none()
         {
@@ -99,7 +99,7 @@ impl SudoActions for AppchainAnchor {
     //
     fn clear_pending_rewards(&mut self) -> ProcessingResult {
         self.assert_owner();
-        self.pending_rewards.clear(Gas::ONE_TERA.mul(170))
+        self.pending_rewards.clear(Gas::from_tgas(170))
     }
     //
     fn update_locked_reward_token_balance(&mut self) {

@@ -23,15 +23,24 @@ pub trait AnchorViewer {
     fn get_pending_rewards(&self) -> Vec<RewardDistribution>;
     /// Get validator set history by index.
     fn get_validator_set(&self, index: U64) -> Option<ValidatorSetView>;
+    /// Get latest validator set history.
+    fn get_latest_validator_set(&self) -> Option<ValidatorSetView>;
+    /// Get all registered addresses of validators.
+    fn get_registered_addresses(&self) -> Vec<(String, String)>;
 }
 
 #[near_bindgen]
 impl AnchorViewer for AppchainAnchor {
     //
     fn get_chain_id(&self) -> ChainId {
+        let anchor_settings = self.anchor_settings.get().unwrap();
         ChainId::new(
-            self.appchain_id.as_str(),
-            self.anchor_settings.get().unwrap().chain_revision_number.0,
+            format!(
+                "{}-{}",
+                self.appchain_id.as_str(),
+                anchor_settings.chain_revision_number.0
+            )
+            .as_str(),
         )
         .expect("INVALID_CHAIN_ID, should not happen")
     }
@@ -70,7 +79,7 @@ impl AnchorViewer for AppchainAnchor {
     }
     //
     fn get_storage_balance(&self) -> U128 {
-        U128::from(u128::from(env::storage_usage()) * env::storage_byte_cost())
+        U128::from(u128::from(env::storage_usage()) * env::storage_byte_cost().as_yoctonear())
     }
     //
     fn get_pending_rewards(&self) -> Vec<RewardDistribution> {
@@ -81,6 +90,24 @@ impl AnchorViewer for AppchainAnchor {
         self.validator_set_histories
             .get(&index.0)
             .map(|vs| self.get_validator_set_view_of(&vs))
+    }
+    //
+    fn get_latest_validator_set(&self) -> Option<ValidatorSetView> {
+        self.validator_set_histories
+            .get_last()
+            .map(|vs| self.get_validator_set_view_of(&vs))
+    }
+    //
+    fn get_registered_addresses(&self) -> Vec<(String, String)> {
+        self.validator_address_to_id_map
+            .iter()
+            .map(|(address, id)| {
+                (
+                    base64::engine::general_purpose::STANDARD.encode(&address),
+                    id.to_string(),
+                )
+            })
+            .collect()
     }
 }
 

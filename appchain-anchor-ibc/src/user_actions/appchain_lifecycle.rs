@@ -4,15 +4,7 @@ use crate::{
     permissonless_actions::PermissionlessActions,
     *,
 };
-use core::time::Duration;
-use ibc::{
-    clients::ics07_tendermint::{
-        client_state::{AllowUpdate, ClientState as TmClientState},
-        trust_threshold::TrustThreshold,
-    },
-    core::ics23_commitment::specs::ProofSpecs,
-    Height,
-};
+use ibc::core::client::types::Height;
 use prost::Message;
 use tendermint::time::Time as TmTime;
 use tendermint_proto::{abci::ValidatorUpdate, crypto::PublicKey};
@@ -62,25 +54,6 @@ impl AppchainLifecycleManager for AppchainAnchor {
             max_clock_drift.0 > 0 && max_clock_drift.0 < trusting_period.0,
             "Max clock drift must be greater than 0 and less than trusting period."
         );
-        let client_state = TmClientState::new(
-            self.get_chain_id(),
-            TrustThreshold::TWO_THIRDS,
-            Duration::from_secs(trusting_period.0),
-            Duration::from_secs(unbonding_period.0),
-            Duration::from_secs(max_clock_drift.0),
-            initial_height,
-            ProofSpecs::cosmos(),
-            upgrade_path,
-            AllowUpdate {
-                after_expiry: true,
-                after_misbehaviour: true,
-            },
-        )
-        .unwrap_or_else(|e| panic!("Failed to create client state: {:?}", e));
-        log!(
-            "Client state created: {:?}",
-            near_sdk::serde_json::to_string(&client_state).unwrap()
-        );
         let init_vs = self.validator_set_histories.get(&0).unwrap();
         let validators_bytes: Vec<Vec<u8>> = init_vs
             .active_validators()
@@ -112,11 +85,18 @@ impl AppchainLifecycleManager for AppchainAnchor {
             .expect("INVALID_HASH, should not happen"),
         };
         log!(
-            "Consensus state created: {:?}",
+            "Consensus state to create: {:?}",
             near_sdk::serde_json::to_string(&consensus_state).unwrap()
         );
-        ext_near_ibc::ext(self.near_ibc_contract.clone())
-            .create_client_for_appchain(client_state, consensus_state);
+        ext_near_ibc::ext(self.near_ibc_contract.clone()).create_tendermint_client_for_appchain(
+            self.get_chain_id(),
+            initial_height,
+            trusting_period,
+            unbonding_period,
+            max_clock_drift,
+            upgrade_path,
+            consensus_state,
+        );
     }
     //
     fn go_live(&mut self) {

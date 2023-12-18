@@ -13,6 +13,18 @@ debug = false
 panic = "abort"
 overflow-checks = true
 
+[workspace.dependencies]
+near-sdk = { git = "https://github.com/near/near-sdk-rs", tag = "near-sdk-v5.0.0-alpha.1" }
+near-contract-standards = { git = "https://github.com/near/near-sdk-rs", tag = "near-sdk-v5.0.0-alpha.1" }
+hex = "0.4.2"
+ibc = { version = "0.48.1", default-features = false, features = ["borsh", "serde"]}
+ibc-proto = { version = "0.38.0", default-features = false, features = ["serde"] }
+prost = { version = "0.12" }
+tendermint = { version = "0.34" }
+tendermint-proto = { version = "0.34" }
+base64 = "0.21"
+octopus-lpos = { git = "https://github.com/octopus-network/octopus-lpos-ibc.git", branch = "upgrade-ibc-to-v0.48.1" }
+
 [patch.crates-io]
-ibc = { git = "https://github.com/octopus-network/ibc-rs.git", branch = "v0.45.0-octopus-for-near-ibc" }
-ibc-proto = { git = "https://github.com/octopus-network/ibc-proto-rs.git", branch = "down-borsh-version" }
+ibc = { git = "https://github.com/octopus-network/ibc-rs.git", branch = "v0.48.1-octopus-nearibc" }
+ibc-proto = { git = "https://github.com/octopus-network/ibc-proto-rs.git", branch = "v0.38.0-octopus" }

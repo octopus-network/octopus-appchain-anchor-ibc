@@ -8,6 +8,7 @@ use crate::{
     *,
 };
 use near_contract_standards::fungible_token::core::ext_ft_core;
+use near_sdk::NearToken;
 
 /// Any account can call these functions.
 pub trait PermissionlessActions {
@@ -46,7 +47,7 @@ impl PermissionlessActions for AppchainAnchor {
     //
     fn distribute_pending_rewards(&mut self) -> ProcessingResult {
         assert!(
-            env::prepaid_gas() >= Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10),
+            env::prepaid_gas() >= Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10),
             "Not enough gas, needs at least {}T.",
             T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10
         );
@@ -77,8 +78,8 @@ impl PermissionlessActions for AppchainAnchor {
         });
         //
         ext_ft_core::ext(self.reward_token_contract.clone())
-            .with_attached_deposit(1)
-            .with_static_gas(Gas::ONE_TERA.mul(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
+            .with_attached_deposit(NearToken::from_yoctonear(1))
+            .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
             .ft_transfer_call(
                 self.lpos_market_contract.clone(),
                 reward_distribution.amount,

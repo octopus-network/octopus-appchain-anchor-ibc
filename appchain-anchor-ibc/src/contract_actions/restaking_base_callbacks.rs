@@ -15,7 +15,6 @@ impl RestakingBaseCallbacks for AppchainAnchor {
     fn get_validator_set_callback(&mut self) {
         near_sdk::assert_self();
         match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
             PromiseResult::Successful(value) => {
                 let restaking_base_vs =
                     near_sdk::serde_json::from_slice::<RestakingBaseValidatorSet>(&value).unwrap();
@@ -31,7 +30,6 @@ impl RestakingBaseCallbacks for AppchainAnchor {
     fn slash_request_callback(&mut self, slash_items: Vec<(AccountId, U128)>) {
         near_sdk::assert_self();
         match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
             PromiseResult::Successful(value) => {
                 let slash_id = near_sdk::serde_json::from_slice::<U64>(&value).unwrap();
                 let mut latest_vs = self.validator_set_histories.get_last().unwrap();
