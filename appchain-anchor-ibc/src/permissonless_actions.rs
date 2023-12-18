@@ -145,11 +145,12 @@ impl AppchainAnchor {
                     .filter(|vkp| vkp.power.0 > 0)
                     .collect::<Vec<ValidatorKeyAndPower>>();
                 for pvkp in &mut previous_vs_pubkeys {
-                    if vs_pubkeys
+                    if let Some(vkp) = vs_pubkeys
                         .iter()
                         .find(|vkp| vkp.public_key == pvkp.public_key)
-                        .is_none()
                     {
+                        pvkp.power = vkp.power;
+                    } else {
                         pvkp.power = U64::from(0);
                     }
                 }
