@@ -9,6 +9,7 @@ use crate::{
 };
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::NearToken;
+use octopus_lpos::packet::consumer::SlashPacketData;
 
 /// Any account can call these functions.
 pub trait PermissionlessActions {
@@ -185,6 +186,50 @@ impl AppchainAnchor {
             validator_pubkeys,
             validator_set_id: U64::from(validator_set.id()),
             slash_acks: slashed_addresses,
+        }
+    }
+    ///
+    pub fn internal_process_slash_packet(&mut self, slash_packet_data: SlashPacketData) {
+        let slashing_validator = slash_packet_data.validator.expect("Validator is empty.");
+        let mut validator_set = self
+            .validator_set_histories
+            .get(&slash_packet_data.valset_update_id)
+            .expect(
+                format!(
+                    "Invalid validator set id in slash packet data: {}",
+                    slash_packet_data.valset_update_id
+                )
+                .as_str(),
+            );
+        let validator_id = self
+            .validator_address_to_id_map
+            .get(&slashing_validator.address)
+            .expect(
+                format!(
+                    "Validator address {:?} is not registered.",
+                    slashing_validator.address
+                )
+                .as_str(),
+            );
+        match slash_packet_data.infraction.as_str() {
+            "INFRACTION_DOWNTIME" => validator_set.jail_validator(&validator_id),
+            "INFRACTION_DOUBLE_SIGN" => {
+                let validator = validator_set.get_validator(&validator_id).expect(
+                    format!(
+                        "Validator for address {:?} is not found in validator set {}.",
+                        slashing_validator.address, slash_packet_data.valset_update_id
+                    )
+                    .as_str(),
+                );
+                let slash_items = vec![(validator.validator_id, U128::from(validator.total_stake))];
+                ext_restaking_base::ext(self.restaking_base_contract.clone())
+                    .slash_request(self.appchain_id.clone(), slash_items.clone(), String::new())
+                    .then(
+                        ext_restaking_base_callbacks::ext(env::current_account_id())
+                            .slash_request_callback(slash_items),
+                    );
+            }
+            _ => (),
         }
     }
 }

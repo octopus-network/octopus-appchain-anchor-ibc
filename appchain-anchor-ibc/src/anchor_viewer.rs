@@ -27,6 +27,8 @@ pub trait AnchorViewer {
     fn get_latest_validator_set(&self) -> Option<ValidatorSetView>;
     /// Get all registered addresses of validators.
     fn get_registered_addresses(&self) -> Vec<(String, String)>;
+    /// Get pending slash packets.
+    fn get_pending_slash_packets(&self) -> Vec<String>;
 }
 
 #[near_bindgen]
@@ -108,6 +110,10 @@ impl AnchorViewer for AppchainAnchor {
                 )
             })
             .collect()
+    }
+    //
+    fn get_pending_slash_packets(&self) -> Vec<String> {
+        self.pending_slash_packets.to_vec()
     }
 }
 
