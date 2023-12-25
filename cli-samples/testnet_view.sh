@@ -12,9 +12,9 @@ export ANCHOR_ACCOUNT_ID=$APPCHAIN_ID'.'$REGISTRY_ACCOUNT_ID
 #
 # near state $ANCHOR_ACCOUNT_ID
 #
-# near view $ANCHOR_ACCOUNT_ID get_chain_id
+# near view $ANCHOR_ACCOUNT_ID version
 #
-# near view $ANCHOR_ACCOUNT_ID get_anchor_version
+# near view $ANCHOR_ACCOUNT_ID get_chain_id
 #
 # near view $ANCHOR_ACCOUNT_ID get_anchor_settings
 #

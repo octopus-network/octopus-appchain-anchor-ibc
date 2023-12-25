@@ -5,8 +5,6 @@ use crate::*;
 pub trait AnchorViewer {
     /// Get the chain id of corresponding appchain.
     fn get_chain_id(&self) -> ChainId;
-    /// Get version of this contract.
-    fn get_anchor_version(&self) -> String;
     /// Get owner of this contract.
     fn get_owner(&self) -> AccountId;
     /// Get anchor settings detail.
@@ -45,10 +43,6 @@ impl AnchorViewer for AppchainAnchor {
             .as_str(),
         )
         .expect("INVALID_CHAIN_ID, should not happen")
-    }
-    //
-    fn get_anchor_version(&self) -> String {
-        ANCHOR_VERSION.to_string()
     }
     //
     fn get_owner(&self) -> AccountId {

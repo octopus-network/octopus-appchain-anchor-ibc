@@ -54,6 +54,3 @@ export ANCHOR_ACCOUNT_ID=$APPCHAIN_ID'.'$REGISTRY_ACCOUNT_ID
 #
 # near call $ANCHOR_ACCOUNT_ID send_vsc_packet_with_removing_addresses '{"removing_addresses":["ed25519:I0+S4rvAXWm/J9l4fbLx6kbW/hrNl8uYMEzheue1xQw=","ed25519:uAv/z2JvVkD2Ut3SRcQZ2oGQcw5lj4BvX8adDWo/8Yg="]}' --accountId $ANCHOR_ACCOUNT_ID --gas 200000000000000
 #
-#
-#
-# ./tmp/testnet_view_cli.sh $1

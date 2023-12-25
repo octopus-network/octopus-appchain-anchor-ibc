@@ -41,8 +41,7 @@ mod upgrade;
 mod user_actions;
 mod validator_set;
 
-/// Version of this contract (the same as in Cargo.toml)
-const ANCHOR_VERSION: &str = "v1.0.1";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Constants for gas.
 const T_GAS_FOR_SIMPLE_FUNCTION_CALL: u64 = 10;
 const T_GAS_CAP_FOR_MULTI_TXS_PROCESSING: u64 = 130;
@@ -141,6 +140,10 @@ impl AppchainAnchor {
             pending_rewards: LookupArray::new(StorageKey::PendingRewards),
             pending_slash_packets: LookupArray::new(StorageKey::PendingSlashPackets),
         }
+    }
+    //
+    pub fn version(&self) -> String {
+        VERSION.to_string()
     }
     //
     pub fn set_owner(&mut self, owner: AccountId) {
