@@ -5,8 +5,6 @@ use crate::*;
 pub trait AnchorViewer {
     /// Get the chain id of corresponding appchain.
     fn get_chain_id(&self) -> ChainId;
-    /// Get version of this contract.
-    fn get_anchor_version(&self) -> String;
     /// Get owner of this contract.
     fn get_owner(&self) -> AccountId;
     /// Get anchor settings detail.
@@ -27,6 +25,8 @@ pub trait AnchorViewer {
     fn get_latest_validator_set(&self) -> Option<ValidatorSetView>;
     /// Get all registered addresses of validators.
     fn get_registered_addresses(&self) -> Vec<(String, String)>;
+    /// Get pending slash packets.
+    fn get_pending_slash_packets(&self) -> Vec<String>;
 }
 
 #[near_bindgen]
@@ -43,10 +43,6 @@ impl AnchorViewer for AppchainAnchor {
             .as_str(),
         )
         .expect("INVALID_CHAIN_ID, should not happen")
-    }
-    //
-    fn get_anchor_version(&self) -> String {
-        ANCHOR_VERSION.to_string()
     }
     //
     fn get_owner(&self) -> AccountId {
@@ -108,6 +104,10 @@ impl AnchorViewer for AppchainAnchor {
                 )
             })
             .collect()
+    }
+    //
+    fn get_pending_slash_packets(&self) -> Vec<String> {
+        self.pending_slash_packets.to_vec()
     }
 }
 

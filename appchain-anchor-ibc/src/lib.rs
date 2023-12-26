@@ -41,8 +41,7 @@ mod upgrade;
 mod user_actions;
 mod validator_set;
 
-/// Version of this contract (the same as in Cargo.toml)
-const ANCHOR_VERSION: &str = "v1.0.0";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Constants for gas.
 const T_GAS_FOR_SIMPLE_FUNCTION_CALL: u64 = 10;
 const T_GAS_CAP_FOR_MULTI_TXS_PROCESSING: u64 = 130;
@@ -62,6 +61,7 @@ pub enum StorageKey {
     ValidatorSetHistories,
     ValidatorIdSetOf(u64),
     ValidatorsOf(u64),
+    PendingSlashPackets,
 }
 
 #[near_bindgen]
@@ -96,6 +96,8 @@ pub struct AppchainAnchor {
     appchain_state: AppchainState,
     /// The pending rewards of validators which are not distributed yet.
     pending_rewards: LookupArray<RewardDistribution>,
+    /// The pending slash packets received from near-ibc contract.
+    pending_slash_packets: LookupArray<String>,
 }
 
 #[near_bindgen]
@@ -136,7 +138,12 @@ impl AppchainAnchor {
             ),
             appchain_state: AppchainState::Booting,
             pending_rewards: LookupArray::new(StorageKey::PendingRewards),
+            pending_slash_packets: LookupArray::new(StorageKey::PendingSlashPackets),
         }
+    }
+    //
+    pub fn version(&self) -> String {
+        VERSION.to_string()
     }
     //
     pub fn set_owner(&mut self, owner: AccountId) {
@@ -223,6 +230,17 @@ impl AppchainAnchor {
                 Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL),
             );
         }
+    }
+}
+
+impl IndexedAndClearable for String {
+    //
+    fn set_index(&mut self, _index: &u64) {
+        ()
+    }
+    //
+    fn clear_extra_storage(&mut self, _max_gas: Gas) -> ProcessingResult {
+        ProcessingResult::Ok
     }
 }
 

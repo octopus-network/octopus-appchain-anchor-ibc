@@ -7,26 +7,6 @@ pub trait StorageMigration {
     fn migrate_state() -> Self;
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[borsh(crate = "near_sdk::borsh")]
-#[serde(crate = "near_sdk::serde")]
-pub struct OldAnchorSettings {
-    /// The revision number of corresponding appchain.
-    pub chain_revision_number: U64,
-    /// The rewards amount for each era.
-    pub era_reward: U128,
-    /// The maximum number of validator(s) registered in this contract for
-    /// the corresponding appchain.
-    pub max_count_of_validators: u32,
-    /// The minimum length of validator set history.
-    /// This is used for keeping the minimum count of validator set history.
-    pub min_length_of_validator_set_history: U64,
-    /// The minimum interval for new validator set.
-    pub min_interval_for_new_validator_set: U64,
-    /// The timeout interval for vsc packet (in nanoseconds).
-    pub vsc_packet_timeout_interval: U64,
-}
-
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct OldAppchainAnchor {
@@ -53,7 +33,7 @@ pub struct OldAppchainAnchor {
     /// The addresses of validators in appchain.
     validator_address_to_id_map: UnorderedMap<Vec<u8>, AccountId>,
     /// The anchor settings for appchain.
-    anchor_settings: LazyOption<OldAnchorSettings>,
+    anchor_settings: LazyOption<AnchorSettings>,
     /// The state of the corresponding appchain.
     appchain_state: AppchainState,
     /// The pending rewards of validators which are not distributed yet.
@@ -69,7 +49,6 @@ impl StorageMigration for AppchainAnchor {
         //
         near_sdk::assert_self();
         //
-        let old_anchor_settings = old_contract.anchor_settings.get().unwrap();
         // Create the new contract using the data from the old contract.
         let new_contract = AppchainAnchor {
             appchain_id: old_contract.appchain_id,
@@ -83,12 +62,10 @@ impl StorageMigration for AppchainAnchor {
             validator_set_histories: old_contract.validator_set_histories,
             validator_id_to_pubkey_map: old_contract.validator_id_to_pubkey_map,
             validator_address_to_id_map: old_contract.validator_address_to_id_map,
-            anchor_settings: LazyOption::new(
-                StorageKey::AnchorSettings,
-                Some(&AnchorSettings::from(old_anchor_settings)),
-            ),
+            anchor_settings: old_contract.anchor_settings,
             appchain_state: old_contract.appchain_state,
             pending_rewards: old_contract.pending_rewards,
+            pending_slash_packets: LookupArray::new(StorageKey::PendingSlashPackets),
         };
         //
         //
@@ -103,18 +80,4 @@ pub fn get_storage_key_in_lookup_array<T: BorshSerialize>(
     let mut result = prefix.clone().into_storage_key();
     result.extend(near_sdk::borsh::to_vec(index).unwrap());
     result
-}
-
-impl From<OldAnchorSettings> for AnchorSettings {
-    fn from(old: OldAnchorSettings) -> Self {
-        Self {
-            chain_revision_number: old.chain_revision_number,
-            era_reward: old.era_reward,
-            max_count_of_validators: old.max_count_of_validators,
-            min_length_of_validator_set_history: old.min_length_of_validator_set_history,
-            min_interval_for_new_validator_set: old.min_interval_for_new_validator_set,
-            vsc_packet_timeout_interval: old.vsc_packet_timeout_interval,
-            min_validator_staking_amount: U128::from(10_000_000_000_000_000_000_000_000_000),
-        }
-    }
 }
