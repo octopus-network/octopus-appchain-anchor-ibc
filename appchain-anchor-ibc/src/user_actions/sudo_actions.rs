@@ -1,7 +1,6 @@
 use crate::{contract_actions::reward_token_callbacks::ext_reward_token_callbacks, *};
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::IntoStorageKey;
-use octopus_lpos::packet::consumer::SlashPacketData;
 
 pub trait SudoActions {
     ///
@@ -21,7 +20,7 @@ pub trait SudoActions {
     ///
     fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>);
     ///
-    fn process_pending_slash_packets(&mut self) -> ProcessingResult;
+    fn remove_first_pending_slash_packets(&mut self);
 }
 
 #[near_bindgen]
@@ -116,29 +115,26 @@ impl SudoActions for AppchainAnchor {
     //
     fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>) {
         self.assert_owner();
-        self.send_vsc_packet(removing_addresses);
+        if let Some(validator_set) = self.validator_set_histories.get_last() {
+            self.send_vsc_packet(
+                &validator_set,
+                &self.validator_set_histories.get_second_last(),
+                removing_addresses,
+            );
+        }
     }
     //
-    fn process_pending_slash_packets(&mut self) -> ProcessingResult {
+    fn remove_first_pending_slash_packets(&mut self) {
         self.assert_owner();
-        let max_gas = Gas::from_tgas(170);
+        let max_gas = Gas::from_tgas(20);
         let packet_string = self
             .pending_slash_packets
             .get_first()
             .expect("No pending slash packet found.");
-        self.internal_process_slash_packet(
-            serde_json::from_str::<SlashPacketData>(packet_string.as_str())
-                .expect(format!("Invalid pending slash packet: {}", packet_string).as_str()),
-        );
         self.pending_slash_packets.remove_first(max_gas);
         log!(
-            "A pending slash packet has been processed: {}",
+            "The first pending slash packet has been removed: {}",
             packet_string
         );
-        if self.pending_slash_packets.len() > 0 {
-            ProcessingResult::NeedMoreGas
-        } else {
-            ProcessingResult::Ok
-        }
     }
 }

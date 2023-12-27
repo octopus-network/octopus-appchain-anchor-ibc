@@ -130,6 +130,11 @@ impl ValidatorSet {
                 },
             );
             self.total_stake += stake;
+        } else {
+            panic!(
+                "Validator already exists in validator set {}: {}",
+                self.id, validator_id
+            );
         }
     }
     ///
@@ -144,7 +149,30 @@ impl ValidatorSet {
                         status: ValidatorStatus::Jailed,
                     },
                 );
+            } else {
+                panic!("Validator is not active: {}", validator_id)
             }
+        } else {
+            panic!("Validator not found: {}", validator_id)
+        }
+    }
+    ///
+    pub fn unjail_validator(&mut self, validator_id: &AccountId) {
+        if let Some(validator) = self.validators.get(validator_id) {
+            if validator.status == ValidatorStatus::Jailed {
+                self.validators.insert(
+                    &validator_id,
+                    &Validator {
+                        validator_id: validator_id.clone(),
+                        total_stake: validator.total_stake,
+                        status: ValidatorStatus::Active,
+                    },
+                );
+            } else {
+                panic!("Validator is not jailed: {}", validator_id)
+            }
+        } else {
+            panic!("Validator not found: {}", validator_id)
         }
     }
     ///

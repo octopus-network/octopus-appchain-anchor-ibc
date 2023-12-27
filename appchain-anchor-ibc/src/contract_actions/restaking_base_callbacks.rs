@@ -61,13 +61,23 @@ impl AppchainAnchor {
             restaking_base_vs.sequence.0,
         );
         let anchor_settings = self.anchor_settings.get().unwrap();
+        let maybe_last_validator_set = self.validator_set_histories.get_last();
         for (validator_id, stake) in restaking_base_vs.validator_set {
             validator_set.add_validator(
-                validator_id,
+                validator_id.clone(),
                 stake.0,
-                match stake.0 >= anchor_settings.min_validator_staking_amount.0 {
-                    true => ValidatorStatus::Active,
-                    false => ValidatorStatus::Unqualified,
+                if stake.0 >= anchor_settings.min_validator_staking_amount.0 {
+                    if let Some(vs) = &maybe_last_validator_set {
+                        if let Some(validator) = vs.get_validator(&validator_id) {
+                            validator.status.clone()
+                        } else {
+                            ValidatorStatus::Active
+                        }
+                    } else {
+                        ValidatorStatus::Active
+                    }
+                } else {
+                    ValidatorStatus::Unqualified
                 },
             );
         }

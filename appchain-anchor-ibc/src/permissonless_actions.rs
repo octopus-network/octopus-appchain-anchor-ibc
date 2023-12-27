@@ -19,6 +19,10 @@ pub trait PermissionlessActions {
     fn send_vsc_packet_to_appchain(&mut self);
     /// Distribute pending rewards to validators.
     fn distribute_pending_rewards(&mut self) -> ProcessingResult;
+    /// Unjail the given validator.
+    fn unjail_validator(&mut self, validator_id: AccountId);
+    /// Process the first pending slash packet.
+    fn process_first_pending_slash_packet(&mut self);
 }
 
 #[near_bindgen]
@@ -43,7 +47,13 @@ impl PermissionlessActions for AppchainAnchor {
     }
     //
     fn send_vsc_packet_to_appchain(&mut self) {
-        self.send_vsc_packet(Vec::new());
+        if let Some(validator_set) = self.validator_set_histories.get_last() {
+            self.send_vsc_packet(
+                &validator_set,
+                &self.validator_set_histories.get_second_last(),
+                vec![],
+            );
+        }
     }
     //
     fn distribute_pending_rewards(&mut self) -> ProcessingResult {
@@ -93,36 +103,68 @@ impl PermissionlessActions for AppchainAnchor {
             );
         ProcessingResult::NeedMoreGas
     }
+    //
+    fn unjail_validator(&mut self, validator_id: AccountId) {
+        let mut validator_set = self
+            .validator_set_histories
+            .get_last()
+            .expect("No validator set exists.");
+        assert!(
+            validator_set.contains_validator(&validator_id),
+            "Validator {:?} is not in the latest validator set.",
+            validator_id
+        );
+        validator_set.unjail_validator(&validator_id);
+        self.validator_set_histories.update_last(&validator_set);
+        self.send_vsc_packet(
+            &validator_set,
+            &self.validator_set_histories.get_second_last(),
+            vec![],
+        );
+    }
+    //
+    fn process_first_pending_slash_packet(&mut self) {
+        if let Some(packet_string) = self.pending_slash_packets.get_first() {
+            self.internal_process_slash_packet(
+                &near_sdk::serde_json::from_str::<SlashPacketData>(packet_string.as_str())
+                    .expect("Invalid slash packet data."),
+            );
+            log!("The first slash packet has been applied: {}", packet_string);
+        } else {
+            panic!("No pending slash packet.");
+        }
+    }
 }
 
 impl AppchainAnchor {
-    pub fn send_vsc_packet(&mut self, removing_addresses: Vec<String>) {
+    pub fn send_vsc_packet(
+        &mut self,
+        validator_set: &ValidatorSet,
+        previous_validator_set: &Option<ValidatorSet>,
+        removing_addresses: Vec<String>,
+    ) {
         assert!(
             self.appchain_state == AppchainState::Active,
             "The state of appchain must be 'Active'."
         );
-        if let Some(latest_validator_set) = self.validator_set_histories.get_last() {
-            ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
-                self.get_chain_id(),
-                self.generate_vsc_packet_data(
-                    &latest_validator_set,
-                    &self.validator_set_histories.get_second_last(),
-                    &removing_addresses,
-                ),
-                self.anchor_settings
-                    .get()
-                    .unwrap()
-                    .vsc_packet_timeout_interval,
-            );
-        } else {
-            panic!("No validator set to send.");
-        }
+        ext_near_ibc::ext(self.near_ibc_contract.clone()).send_vsc_packet(
+            self.get_chain_id(),
+            self.generate_vsc_packet_data(
+                validator_set,
+                previous_validator_set,
+                &removing_addresses,
+            ),
+            self.anchor_settings
+                .get()
+                .unwrap()
+                .vsc_packet_timeout_interval,
+        );
     }
     //
     fn generate_vsc_packet_data(
         &self,
         validator_set: &ValidatorSet,
-        previous_vs: &Option<ValidatorSet>,
+        previous_validator_set: &Option<ValidatorSet>,
         removing_addresses: &Vec<String>,
     ) -> VscPacketData {
         let vs_pubkeys = validator_set
@@ -134,9 +176,9 @@ impl AppchainAnchor {
             })
             .filter(|vkp| vkp.power.0 > 0)
             .collect::<Vec<ValidatorKeyAndPower>>();
-        let mut validator_pubkeys = match previous_vs {
-            Some(previous_vs) => {
-                let mut previous_vs_pubkeys = previous_vs
+        let mut validator_pubkeys = match previous_validator_set {
+            Some(previous_validator_set) => {
+                let mut previous_vs_pubkeys = previous_validator_set
                     .active_validators()
                     .iter()
                     .map(|(validator_id, stake)| ValidatorKeyAndPower {
@@ -189,18 +231,24 @@ impl AppchainAnchor {
         }
     }
     ///
-    pub fn internal_process_slash_packet(&mut self, slash_packet_data: SlashPacketData) {
-        let slashing_validator = slash_packet_data.validator.expect("Validator is empty.");
+    pub fn internal_process_slash_packet(&mut self, slash_packet_data: &SlashPacketData) {
         let mut validator_set = self
             .validator_set_histories
-            .get(&slash_packet_data.valset_update_id)
-            .expect(
-                format!(
-                    "Invalid validator set id in slash packet data: {}",
-                    slash_packet_data.valset_update_id
-                )
-                .as_str(),
-            );
+            .get_last()
+            .expect("No validator set exists, should not happen.");
+        assert!(
+            validator_set.id() == slash_packet_data.valset_update_id
+                || validator_set.id() == slash_packet_data.valset_update_id + 1,
+            "Slash packet is too old: {}",
+            near_sdk::serde_json::to_string(slash_packet_data).unwrap()
+        );
+        let slashing_validator = slash_packet_data.clone().validator.expect(
+            format!(
+                "Validator is empty, invalid slash packet: {}",
+                near_sdk::serde_json::to_string(slash_packet_data).unwrap()
+            )
+            .as_str(),
+        );
         let validator_id = self
             .validator_address_to_id_map
             .get(&slashing_validator.address)
@@ -212,22 +260,31 @@ impl AppchainAnchor {
                 .as_str(),
             );
         match slash_packet_data.infraction.as_str() {
-            "INFRACTION_DOWNTIME" => validator_set.jail_validator(&validator_id),
-            "INFRACTION_DOUBLE_SIGN" => {
-                let validator = validator_set.get_validator(&validator_id).expect(
-                    format!(
-                        "Validator for address {:?} is not found in validator set {}.",
-                        slashing_validator.address, slash_packet_data.valset_update_id
-                    )
-                    .as_str(),
+            "INFRACTION_DOWNTIME" => {
+                validator_set.jail_validator(&validator_id);
+                self.validator_set_histories.update_last(&validator_set);
+                self.send_vsc_packet(
+                    &validator_set,
+                    &self.validator_set_histories.get_second_last(),
+                    vec![],
                 );
-                let slash_items = vec![(validator.validator_id, U128::from(validator.total_stake))];
-                ext_restaking_base::ext(self.restaking_base_contract.clone())
-                    .slash_request(self.appchain_id.clone(), slash_items.clone(), String::new())
-                    .then(
-                        ext_restaking_base_callbacks::ext(env::current_account_id())
-                            .slash_request_callback(slash_items),
-                    );
+            }
+            "INFRACTION_DOUBLE_SIGN" => {
+                unimplemented!("INFRACTION_DOUBLE_SIGN");
+                // let validator = validator_set.get_validator(&validator_id).expect(
+                //     format!(
+                //         "Validator for address {:?} is not found in validator set {}.",
+                //         slashing_validator.address, slash_packet_data.valset_update_id
+                //     )
+                //     .as_str(),
+                // );
+                // let slash_items = vec![(validator.validator_id, U128::from(validator.total_stake))];
+                // ext_restaking_base::ext(self.restaking_base_contract.clone())
+                //     .slash_request(self.appchain_id.clone(), slash_items.clone(), String::new())
+                //     .then(
+                //         ext_restaking_base_callbacks::ext(env::current_account_id())
+                //             .slash_request_callback(slash_items),
+                //     );
             }
             _ => (),
         }
