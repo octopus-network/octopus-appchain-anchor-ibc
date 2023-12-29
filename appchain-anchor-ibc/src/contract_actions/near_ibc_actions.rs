@@ -16,11 +16,16 @@ impl NearIbcActions for AppchainAnchor {
     /// Interface for near-ibc to call when slash packet is received.
     fn slash_validator(&mut self, slach_packet_data: SlashPacketData) {
         self.assert_near_ibc_contract();
-        let mut packet_string = serde_json::to_string(&slach_packet_data).unwrap();
+        let mut packet_string = serde_json::to_string(&SlashPacketView {
+            validator: slach_packet_data.validator,
+            valset_update_id: slach_packet_data.valset_update_id,
+            infraction: slach_packet_data.infraction,
+            received_timestamp: env::block_timestamp(),
+        })
+        .unwrap();
         self.pending_slash_packets.append(&mut packet_string);
         log!(
-            r#"EVENT_JSON:{{"standard":"nep297","version":"1.0.0","event":"SLASH_PACKET_RECEIVED","timestamp":"{}","packet_string":"{}"}}"#,
-            env::block_timestamp(),
+            r#"EVENT_JSON:{{"standard":"nep297","version":"1.0.0","event":"SLASH_PACKET_RECEIVED","packet_string":"{}"}}"#,
             packet_string,
         );
     }
@@ -42,6 +47,7 @@ impl NearIbcActions for AppchainAnchor {
             validator_set_id,
             amount: anchor_settings.era_reward,
             timestamp: env::block_timestamp(),
+            distributed: false,
         };
         self.pending_rewards.append(&mut reward_distribution);
         log!(

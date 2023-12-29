@@ -9,7 +9,6 @@ use crate::{
 };
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::NearToken;
-use octopus_lpos::packet::consumer::SlashPacketData;
 
 /// Any account can call these functions.
 pub trait PermissionlessActions {
@@ -62,10 +61,9 @@ impl PermissionlessActions for AppchainAnchor {
             "Not enough gas, needs at least {}T.",
             T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10
         );
-        if self.pending_rewards.len() == 0 {
-            return ProcessingResult::Ok;
-        }
-        let reward_distribution = self.pending_rewards.get_first().unwrap();
+        let (index, reward_distribution) = self
+            .get_first_undistributed_reward()
+            .expect("No pending reward.");
         if self.locked_reward_token_amount < reward_distribution.amount.0 {
             return ProcessingResult::Error(
                 "The locked reward token amount is not enough.".to_string(),
@@ -91,6 +89,7 @@ impl PermissionlessActions for AppchainAnchor {
         ext_ft_core::ext(self.reward_token_contract.clone())
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
+            .with_unused_gas_weight(0)
             .ft_transfer_call(
                 self.lpos_market_contract.clone(),
                 reward_distribution.amount,
@@ -99,7 +98,9 @@ impl PermissionlessActions for AppchainAnchor {
             )
             .then(
                 ext_reward_token_callbacks::ext(env::current_account_id())
-                    .ft_transfer_call_callback(msg, reward_distribution.amount),
+                    .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
+                    .with_unused_gas_weight(0)
+                    .ft_transfer_call_callback(msg, reward_distribution, U64::from(index)),
             );
         ProcessingResult::NeedMoreGas
     }
@@ -126,7 +127,7 @@ impl PermissionlessActions for AppchainAnchor {
     fn process_first_pending_slash_packet(&mut self) {
         if let Some(packet_string) = self.pending_slash_packets.get_first() {
             self.internal_process_slash_packet(
-                &near_sdk::serde_json::from_str::<SlashPacketData>(packet_string.as_str())
+                &near_sdk::serde_json::from_str::<SlashPacketView>(packet_string.as_str())
                     .expect("Invalid slash packet data."),
             );
             log!("The first slash packet has been applied: {}", packet_string);
@@ -230,22 +231,33 @@ impl AppchainAnchor {
             slash_acks: slashed_addresses,
         }
     }
+    //
+    fn get_first_undistributed_reward(&self) -> Option<(u64, RewardDistribution)> {
+        let index_range = self.pending_rewards.index_range();
+        for index in index_range.start_index.0..index_range.end_index.0 + 1 {
+            let reward_distribution = self.pending_rewards.get(&index).unwrap();
+            if !reward_distribution.distributed {
+                return Some((index, reward_distribution.clone()));
+            }
+        }
+        None
+    }
     ///
-    pub fn internal_process_slash_packet(&mut self, slash_packet_data: &SlashPacketData) {
+    pub fn internal_process_slash_packet(&mut self, slash_packet_view: &SlashPacketView) {
         let mut validator_set = self
             .validator_set_histories
             .get_last()
             .expect("No validator set exists, should not happen.");
         assert!(
-            validator_set.id() == slash_packet_data.valset_update_id
-                || validator_set.id() == slash_packet_data.valset_update_id + 1,
+            validator_set.id() == slash_packet_view.valset_update_id
+                || validator_set.id() == slash_packet_view.valset_update_id + 1,
             "Slash packet is too old: {}",
-            near_sdk::serde_json::to_string(slash_packet_data).unwrap()
+            near_sdk::serde_json::to_string(slash_packet_view).unwrap()
         );
-        let slashing_validator = slash_packet_data.clone().validator.expect(
+        let slashing_validator = slash_packet_view.clone().validator.expect(
             format!(
                 "Validator is empty, invalid slash packet: {}",
-                near_sdk::serde_json::to_string(slash_packet_data).unwrap()
+                near_sdk::serde_json::to_string(slash_packet_view).unwrap()
             )
             .as_str(),
         );
@@ -259,7 +271,7 @@ impl AppchainAnchor {
                 )
                 .as_str(),
             );
-        match slash_packet_data.infraction.as_str() {
+        match slash_packet_view.infraction.as_str() {
             "INFRACTION_DOWNTIME" => {
                 validator_set.jail_validator(&validator_id);
                 self.validator_set_histories.update_last(&validator_set);

@@ -21,6 +21,10 @@ pub trait SudoActions {
     fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>);
     ///
     fn remove_first_pending_slash_packets(&mut self);
+    ///
+    fn force_jail_validator(&mut self, validator_id: AccountId);
+    ///
+    fn checked_clean_distributed_rewards(&mut self);
 }
 
 #[near_bindgen]
@@ -136,5 +140,46 @@ impl SudoActions for AppchainAnchor {
             "The first pending slash packet has been removed: {}",
             packet_string
         );
+    }
+    //
+    fn force_jail_validator(&mut self, validator_id: AccountId) {
+        self.assert_owner();
+        let mut validator_set = self
+            .validator_set_histories
+            .get_last()
+            .expect("No validator set found.");
+        assert!(
+            validator_set.contains_validator(&validator_id),
+            "No validator found."
+        );
+        validator_set.jail_validator(&validator_id);
+        self.validator_set_histories.update_last(&validator_set);
+        log!("The validator '{}' has been jailed.", validator_id);
+    }
+    //
+    fn checked_clean_distributed_rewards(&mut self) {
+        self.assert_owner();
+        let max_gas = Gas::from_tgas(170);
+        while env::used_gas() < max_gas {
+            if self.pending_rewards.len() == 1 {
+                break;
+            }
+            if self
+                .pending_rewards
+                .get_first()
+                .expect("No pending rewards. Should not happen.")
+                .distributed
+            {
+                if let Some(reward) = self.pending_rewards.get_second() {
+                    if reward.distributed {
+                        self.pending_rewards.remove_first(max_gas);
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
     }
 }

@@ -1,5 +1,6 @@
 use crate::{validator_set::ValidatorStatus, *};
 use near_sdk::{IntoStorageKey, Timestamp};
+use octopus_lpos::packet::consumer::Validator;
 
 pub type AppchainId = String;
 
@@ -209,6 +210,7 @@ pub struct RewardDistribution {
     pub validator_set_id: U64,
     pub amount: U128,
     pub timestamp: Timestamp,
+    pub distributed: bool,
 }
 
 impl IndexedAndClearable for RewardDistribution {
@@ -235,4 +237,15 @@ pub struct VscPacketData {
     pub validator_pubkeys: Vec<ValidatorKeyAndPower>,
     pub validator_set_id: U64,
     pub slash_acks: Vec<Vec<u8>>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SlashPacketView {
+    pub validator: Option<Validator>,
+    /// map to the infraction block height on the provider
+    pub valset_update_id: u64,
+    /// tell if the slashing is for a downtime or a double-signing infraction
+    pub infraction: String,
+    pub received_timestamp: Timestamp,
 }

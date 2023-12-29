@@ -43,6 +43,14 @@ where
         self.lookup_map.get(&self.start_index)
     }
     ///
+    pub fn get_second(&self) -> Option<T> {
+        if self.start_index < self.end_index {
+            self.lookup_map.get(&(self.start_index + 1))
+        } else {
+            None
+        }
+    }
+    ///
     pub fn get_last(&self) -> Option<T> {
         self.lookup_map.get(&self.end_index)
     }
@@ -257,11 +265,13 @@ mod tests {
             validator_set_id: U64::from(0),
             amount: U128::from(100),
             timestamp: env::block_timestamp(),
+            distributed: false,
         });
         lookup_array.append(&mut RewardDistribution {
             validator_set_id: U64::from(1),
             amount: U128::from(101),
             timestamp: env::block_timestamp(),
+            distributed: false,
         });
         assert_eq!(lookup_array.len(), 2);
         assert_eq!(lookup_array.index_range().start_index, U64::from(0));
@@ -283,16 +293,19 @@ mod tests {
             validator_set_id: U64::from(0),
             amount: U128::from(100),
             timestamp: env::block_timestamp(),
+            distributed: false,
         });
         lookup_array.append(&mut RewardDistribution {
             validator_set_id: U64::from(1),
             amount: U128::from(101),
             timestamp: env::block_timestamp(),
+            distributed: false,
         });
         lookup_array.append(&mut RewardDistribution {
             validator_set_id: U64::from(2),
             amount: U128::from(102),
             timestamp: env::block_timestamp(),
+            distributed: false,
         });
         assert_eq!(lookup_array.len(), 3);
         assert_eq!(lookup_array.index_range().start_index, U64::from(0));
