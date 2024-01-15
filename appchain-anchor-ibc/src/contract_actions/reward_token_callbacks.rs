@@ -32,7 +32,7 @@ impl RewardTokenCallbacks for AppchainAnchor {
                     self.locked_reward_token_amount -= reward_distribution.amount.0;
                     new_rd.distributed = true;
                     self.pending_rewards
-                        .update(&reward_distribution_index.0, &reward_distribution);
+                        .update(&reward_distribution_index.0, &new_rd);
                 } else {
                     if accepted_amount.0 > 0 {
                         let mut new_rd = reward_distribution.clone();

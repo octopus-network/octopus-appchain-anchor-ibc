@@ -18,7 +18,7 @@ pub trait SudoActions {
     ///
     fn update_locked_reward_token_balance(&mut self);
     ///
-    fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>);
+    fn force_send_vsc_packet(&mut self, removing_pubkeys: Vec<String>, slash_acks: Vec<String>);
     ///
     fn remove_first_pending_slash_packets(&mut self);
     ///
@@ -117,13 +117,20 @@ impl SudoActions for AppchainAnchor {
             );
     }
     //
-    fn send_vsc_packet_with_removing_addresses(&mut self, removing_addresses: Vec<String>) {
+    fn force_send_vsc_packet(&mut self, removing_pubkeys: Vec<String>, slash_acks: Vec<String>) {
         self.assert_owner();
         if let Some(validator_set) = self.validator_set_histories.get_last() {
             self.send_vsc_packet(
                 &validator_set,
                 &self.validator_set_histories.get_second_last(),
-                removing_addresses,
+                removing_pubkeys
+                    .iter()
+                    .map(|rp| {
+                        decode_ed25519_pubkey(rp)
+                            .expect(format!("Invalid removing pubkey: {}", rp).as_str())
+                    })
+                    .collect(),
+                slash_acks,
             );
         }
     }

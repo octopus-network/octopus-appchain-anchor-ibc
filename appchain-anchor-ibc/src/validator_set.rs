@@ -56,21 +56,21 @@ pub struct Validator {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct ValidatorSet {
     /// The id of the validator set.
-    id: u64,
+    pub id: u64,
     /// The set of account id of validators.
-    validator_id_set: UnorderedSet<AccountId>,
+    pub validator_id_set: UnorderedSet<AccountId>,
     /// The validators data, mapped by their account id in NEAR protocol.
-    validators: LookupMap<AccountId, Validator>,
+    pub validators: LookupMap<AccountId, Validator>,
     /// Total stake of current set
-    total_stake: Balance,
+    pub total_stake: Balance,
     /// The sequence of the validator set in restaking base contract.
-    sequence: u64,
+    pub sequence: u64,
     /// The timestamp of when this validator set is created.
-    timestamp: Timestamp,
+    pub timestamp: Timestamp,
     /// Whether the validator set is matured in the corresponding appchain.
-    matured_in_appchain: bool,
+    pub matured_in_appchain: bool,
     /// The jailed validators with their account id, jailed time and unjailed time.
-    jailed_validators: Vec<(AccountId, Timestamp, Timestamp)>,
+    pub jailed_validators: Vec<(AccountId, Timestamp, Timestamp)>,
 }
 
 pub trait ValidatorSetViewer {
@@ -96,6 +96,8 @@ pub trait ValidatorSetViewer {
     fn validator_count(&self) -> u64;
     ///
     fn active_validators(&self) -> Vec<(AccountId, U128)>;
+    ///
+    fn jailed_validators(&self) -> Vec<(AccountId, Timestamp, Timestamp)>;
     ///
     fn slash_ack_validators(&self) -> Vec<AccountId>;
 }
@@ -194,12 +196,7 @@ impl ValidatorSet {
                         status: ValidatorStatus::Jailed,
                     },
                 );
-                update_jailed_validators(
-                    &mut self.jailed_validators,
-                    validator_id,
-                    Some(env::block_timestamp()),
-                    None,
-                );
+                self.update_jailed_timestamp(validator_id);
             } else {
                 panic!("Validator is not active: {}", validator_id)
             }
@@ -208,7 +205,7 @@ impl ValidatorSet {
         }
     }
     ///
-    pub fn unjail_validator(&mut self, validator_id: &AccountId) {
+    pub fn unjail_validator(&mut self, validator_id: &AccountId, min_unjail_interval: u64) {
         if let Some(validator) = self.validators.get(validator_id) {
             if validator.status == ValidatorStatus::Jailed {
                 self.validators.insert(
@@ -219,12 +216,7 @@ impl ValidatorSet {
                         status: ValidatorStatus::Active,
                     },
                 );
-                update_jailed_validators(
-                    &mut self.jailed_validators,
-                    validator_id,
-                    None,
-                    Some(env::block_timestamp()),
-                );
+                self.update_unjailed_timestamp(validator_id, min_unjail_interval);
             } else {
                 panic!("Validator is not jailed: {}", validator_id)
             }
@@ -334,6 +326,10 @@ impl ValidatorSetViewer for ValidatorSet {
             .collect()
     }
     //
+    fn jailed_validators(&self) -> Vec<(AccountId, Timestamp, Timestamp)> {
+        self.jailed_validators.clone()
+    }
+    //
     fn slash_ack_validators(&self) -> Vec<AccountId> {
         self.validator_id_set
             .iter()
@@ -362,23 +358,29 @@ impl IndexedAndClearable for ValidatorSet {
     }
 }
 
-fn update_jailed_validators(
-    jailed_validators: &mut Vec<(AccountId, Timestamp, Timestamp)>,
-    validator_id: &AccountId,
-    jailed_timestamp: Option<Timestamp>,
-    unjailed_timestamp: Option<Timestamp>,
-) {
-    assert!(jailed_timestamp.is_some() || unjailed_timestamp.is_some());
-    let mut index: usize = 0;
-    for (id, jt, _) in jailed_validators.clone().iter_mut() {
-        if id == validator_id {
-            jailed_validators.insert(
-                index,
-                (id.clone(), jt.clone(), unjailed_timestamp.unwrap_or(0)),
-            );
-            return;
+impl ValidatorSet {
+    //
+    fn update_jailed_timestamp(&mut self, validator_id: &AccountId) {
+        for (id, _, _) in self.jailed_validators.iter() {
+            if id == validator_id {
+                panic!("Validator already jailed: {}", validator_id);
+            }
         }
-        index += 1;
+        self.jailed_validators
+            .push((validator_id.clone(), env::block_timestamp(), 0));
     }
-    jailed_validators.push((validator_id.clone(), jailed_timestamp.unwrap_or(0), 0));
+    //
+    fn update_unjailed_timestamp(&mut self, validator_id: &AccountId, min_unjail_interval: u64) {
+        for (id, jt, ut) in self.jailed_validators.iter_mut() {
+            if id == validator_id {
+                if *jt + min_unjail_interval * 1_000_000_000 > env::block_timestamp() {
+                    panic!("Validator is not jailed for long enough: {}", validator_id);
+                } else {
+                    *ut = env::block_timestamp();
+                }
+                return;
+            }
+        }
+        panic!("Validator not found: {}", validator_id);
+    }
 }

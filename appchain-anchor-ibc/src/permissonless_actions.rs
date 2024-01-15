@@ -51,6 +51,7 @@ impl PermissionlessActions for AppchainAnchor {
                 &validator_set,
                 &self.validator_set_histories.get_second_last(),
                 vec![],
+                vec![],
             );
         }
     }
@@ -115,11 +116,13 @@ impl PermissionlessActions for AppchainAnchor {
             "Validator {:?} is not in the latest validator set.",
             validator_id
         );
-        validator_set.unjail_validator(&validator_id);
+        let anchor_settings = self.anchor_settings.get().unwrap();
+        validator_set.unjail_validator(&validator_id, anchor_settings.min_unjail_interval.0);
         self.validator_set_histories.update_last(&validator_set);
         self.send_vsc_packet(
             &validator_set,
             &self.validator_set_histories.get_second_last(),
+            vec![],
             vec![],
         );
     }
@@ -130,9 +133,11 @@ impl PermissionlessActions for AppchainAnchor {
                 &near_sdk::serde_json::from_str::<SlashPacketView>(packet_string.as_str())
                     .expect("Invalid slash packet data."),
             );
+            self.pending_slash_packets
+                .remove_first(env::prepaid_gas().saturating_sub(env::used_gas()));
             log!("The first slash packet has been applied: {}", packet_string);
         } else {
-            panic!("No pending slash packet.");
+            log!("No pending slash packet.");
         }
     }
 }
@@ -142,7 +147,8 @@ impl AppchainAnchor {
         &mut self,
         validator_set: &ValidatorSet,
         previous_validator_set: &Option<ValidatorSet>,
-        removing_addresses: Vec<String>,
+        removing_pubkeys: Vec<Vec<u8>>,
+        slash_acks: Vec<String>,
     ) {
         assert!(
             self.appchain_state == AppchainState::Active,
@@ -153,7 +159,8 @@ impl AppchainAnchor {
             self.generate_vsc_packet_data(
                 validator_set,
                 previous_validator_set,
-                &removing_addresses,
+                &removing_pubkeys,
+                &slash_acks,
             ),
             self.anchor_settings
                 .get()
@@ -166,7 +173,8 @@ impl AppchainAnchor {
         &self,
         validator_set: &ValidatorSet,
         previous_validator_set: &Option<ValidatorSet>,
-        removing_addresses: &Vec<String>,
+        removing_pubkeys: &Vec<Vec<u8>>,
+        slash_acks: &Vec<String>,
     ) -> VscPacketData {
         let vs_pubkeys = validator_set
             .active_validators()
@@ -211,24 +219,16 @@ impl AppchainAnchor {
             }
             None => vs_pubkeys.clone(),
         };
-        for address in removing_addresses {
+        for pubkey in removing_pubkeys {
             validator_pubkeys.push(ValidatorKeyAndPower {
-                public_key: decode_ed25519_pubkey(address)
-                    .expect(format!("Invalid removing address: {}", address).as_str()),
+                public_key: pubkey.clone(),
                 power: U64::from(0),
             });
         }
-        let slashed_addresses = validator_set
-            .slash_ack_validators()
-            .iter()
-            .map(|id| {
-                calculate_address(self.validator_id_to_pubkey_map.get(&id).unwrap().as_slice())
-            })
-            .collect();
         VscPacketData {
             validator_pubkeys,
             validator_set_id: U64::from(validator_set.id()),
-            slash_acks: slashed_addresses,
+            slash_acks: slash_acks.clone(),
         }
     }
     //
@@ -248,12 +248,6 @@ impl AppchainAnchor {
             .validator_set_histories
             .get_last()
             .expect("No validator set exists, should not happen.");
-        assert!(
-            validator_set.id() == slash_packet_view.valset_update_id
-                || validator_set.id() == slash_packet_view.valset_update_id + 1,
-            "Slash packet is too old: {}",
-            near_sdk::serde_json::to_string(slash_packet_view).unwrap()
-        );
         let slashing_validator = slash_packet_view.clone().validator.expect(
             format!(
                 "Validator is empty, invalid slash packet: {}",
@@ -271,6 +265,15 @@ impl AppchainAnchor {
                 )
                 .as_str(),
             );
+        let removing_pubkeys = if validator_set.id() > slash_packet_view.valset_update_id + 1 {
+            emit_nep297_event("SLASH_PACKET_TOO_OLD", slash_packet_view);
+            vec![]
+        } else {
+            self.validator_id_to_pubkey_map
+                .get(&validator_id)
+                .map_or(vec![], |v| vec![v])
+        };
+        let anchor_settings = self.anchor_settings.get().unwrap();
         match slash_packet_view.infraction.as_str() {
             "INFRACTION_DOWNTIME" => {
                 validator_set.jail_validator(&validator_id);
@@ -278,7 +281,11 @@ impl AppchainAnchor {
                 self.send_vsc_packet(
                     &validator_set,
                     &self.validator_set_histories.get_second_last(),
-                    vec![],
+                    removing_pubkeys,
+                    vec![calculate_bech32_address(
+                        anchor_settings.appchain_address_bech32_hrp.clone(),
+                        slashing_validator.address.clone(),
+                    )],
                 );
             }
             "INFRACTION_DOUBLE_SIGN" => {

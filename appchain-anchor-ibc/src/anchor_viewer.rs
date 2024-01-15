@@ -145,6 +145,7 @@ impl AppchainAnchor {
             sequence: U64::from(validator_set.sequence()),
             timestamp: validator_set.timestamp(),
             matured_on_appchain: validator_set.matured_in_appchain(),
+            jailed_validators: validator_set.jailed_validators(),
         }
     }
 }
