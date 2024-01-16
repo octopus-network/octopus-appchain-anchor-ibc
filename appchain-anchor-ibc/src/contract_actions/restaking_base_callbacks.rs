@@ -61,7 +61,7 @@ impl AppchainAnchor {
             anchor_settings.min_validator_staking_amount.0,
         );
         assert!(
-            validator_set.active_validators().len() > 0,
+            validator_set.active_validators(None).len() > 0,
             "No qualified validator in new validator set with sequence '{}'.",
             validator_set.sequence()
         );

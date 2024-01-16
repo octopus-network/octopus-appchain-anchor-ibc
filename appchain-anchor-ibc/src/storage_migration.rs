@@ -2,6 +2,7 @@ use crate::{validator_set::Validator, *};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::{env, near_bindgen, AccountId, IntoStorageKey, Timestamp};
+use octopus_lpos::packet::consumer::SlashPacketData;
 
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -55,6 +56,7 @@ pub struct OldAnchorSettings {
 
 pub trait StorageMigration {
     fn migrate_state() -> Self;
+    fn migrate_pending_slash_data(&mut self);
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -187,6 +189,26 @@ impl StorageMigration for AppchainAnchor {
 
         //
         new_contract
+    }
+    //
+    fn migrate_pending_slash_data(&mut self) {
+        let index_range = self.pending_slash_packets.index_range();
+        for index in index_range.start_index.0..index_range.end_index.0 + 1 {
+            let packet_string = self.pending_slash_packets.get(&index).unwrap();
+            let old_slash_data =
+                near_sdk::serde_json::from_str::<SlashPacketData>(packet_string.as_str())
+                    .expect("Invalid slash packet data.");
+            self.pending_slash_packets.update(
+                &index,
+                &near_sdk::serde_json::to_string(&SlashPacketView {
+                    validator: old_slash_data.validator,
+                    valset_update_id: old_slash_data.valset_update_id,
+                    infraction: old_slash_data.infraction,
+                    received_timestamp: env::block_timestamp(),
+                })
+                .unwrap(),
+            );
+        }
     }
 }
 

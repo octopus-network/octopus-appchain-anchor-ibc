@@ -95,7 +95,7 @@ pub trait ValidatorSetViewer {
     ///
     fn validator_count(&self) -> u64;
     ///
-    fn active_validators(&self) -> Vec<(AccountId, U128)>;
+    fn active_validators(&self, period: Option<(Timestamp, Timestamp)>) -> Vec<(AccountId, U128)>;
     ///
     fn jailed_validators(&self) -> Vec<(AccountId, Timestamp, Timestamp)>;
     ///
@@ -307,12 +307,13 @@ impl ValidatorSetViewer for ValidatorSet {
         self.validator_id_set.len()
     }
     //
-    fn active_validators(&self) -> Vec<(AccountId, U128)> {
+    fn active_validators(&self, period: Option<(Timestamp, Timestamp)>) -> Vec<(AccountId, U128)> {
         self.validator_id_set
             .iter()
             .filter(|id| {
                 if let Some(validator) = self.validators.get(&id) {
                     validator.status == ValidatorStatus::Active
+                        && !self.is_validator_jailed_in_period(id, period)
                 } else {
                     false
                 }
@@ -386,5 +387,30 @@ impl ValidatorSet {
             }
         }
         panic!("Validator not found: {}", validator_id);
+    }
+    //
+    fn is_validator_jailed_in_period(
+        &self,
+        validator_id: &AccountId,
+        period: Option<(Timestamp, Timestamp)>,
+    ) -> bool {
+        if let Some((start, end)) = period {
+            for (id, jailed_time, unjailed_time) in self.jailed_validators.iter() {
+                if id == validator_id {
+                    if *unjailed_time == 0 {
+                        if *jailed_time >= start && *jailed_time <= end {
+                            return true;
+                        }
+                    } else {
+                        if *unjailed_time >= start && *unjailed_time <= end {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        } else {
+            false
+        }
     }
 }

@@ -62,48 +62,61 @@ impl PermissionlessActions for AppchainAnchor {
             "Not enough gas, needs at least {}T.",
             T_GAS_FOR_SIMPLE_FUNCTION_CALL * 10
         );
-        let (index, reward_distribution) = self
-            .get_first_undistributed_reward()
-            .expect("No pending reward.");
-        if self.locked_reward_token_amount < reward_distribution.amount.0 {
-            return ProcessingResult::Error(
-                "The locked reward token amount is not enough.".to_string(),
-            );
-        }
-        //
-        let validator_set = self
-            .validator_set_histories
-            .get(&reward_distribution.validator_set_id.0)
-            .expect(
-                format!(
+        if let Some((index, reward_distribution)) = self.get_first_undistributed_reward() {
+            if self.locked_reward_token_amount < reward_distribution.amount.0 {
+                return ProcessingResult::Error(
+                    "The locked reward token amount is not enough.".to_string(),
+                );
+            }
+            //
+            let validator_set = self
+                .validator_set_histories
+                .get(&reward_distribution.validator_set_id.0)
+                .expect(
+                    format!(
                     "Invalid validator set id in pending rewards record: {}, should not happen.",
                     reward_distribution.validator_set_id.0
                 )
-                .as_str(),
-            );
-        let msg = FtTransferMessage::AnchorDepositRewardMsg(AnchorDepositRewardMsg {
-            consumer_chain_id: format!("cosmos:{}", self.appchain_id.clone()),
-            validator_set: validator_set.active_validators(),
-            sequence: validator_set.sequence().into(),
-        });
-        //
-        ext_ft_core::ext(self.reward_token_contract.clone())
-            .with_attached_deposit(NearToken::from_yoctonear(1))
-            .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
-            .with_unused_gas_weight(0)
-            .ft_transfer_call(
-                self.lpos_market_contract.clone(),
-                reward_distribution.amount,
-                None,
-                near_sdk::serde_json::to_string(&msg).unwrap(),
-            )
-            .then(
-                ext_reward_token_callbacks::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
-                    .with_unused_gas_weight(0)
-                    .ft_transfer_call_callback(msg, reward_distribution, U64::from(index)),
-            );
-        ProcessingResult::NeedMoreGas
+                    .as_str(),
+                );
+            let period = if !validator_set.jailed_validators().is_empty() && index > 0 {
+                let previous_reward_distribution = self
+                    .pending_rewards
+                    .get(&(index - 1))
+                    .expect("No previous reward distribution.");
+                Some((
+                    previous_reward_distribution.timestamp,
+                    reward_distribution.timestamp,
+                ))
+            } else {
+                None
+            };
+            let msg = FtTransferMessage::AnchorDepositRewardMsg(AnchorDepositRewardMsg {
+                consumer_chain_id: format!("cosmos:{}", self.appchain_id.clone()),
+                validator_set: validator_set.active_validators(period),
+                sequence: validator_set.sequence().into(),
+            });
+            //
+            ext_ft_core::ext(self.reward_token_contract.clone())
+                .with_attached_deposit(NearToken::from_yoctonear(1))
+                .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
+                .with_unused_gas_weight(0)
+                .ft_transfer_call(
+                    self.lpos_market_contract.clone(),
+                    reward_distribution.amount,
+                    None,
+                    near_sdk::serde_json::to_string(&msg).unwrap(),
+                )
+                .then(
+                    ext_reward_token_callbacks::ext(env::current_account_id())
+                        .with_static_gas(Gas::from_tgas(T_GAS_FOR_SIMPLE_FUNCTION_CALL * 8))
+                        .with_unused_gas_weight(0)
+                        .ft_transfer_call_callback(msg, reward_distribution, U64::from(index)),
+                );
+            ProcessingResult::NeedMoreGas
+        } else {
+            ProcessingResult::Ok
+        }
     }
     //
     fn unjail_validator(&mut self, validator_id: AccountId) {
@@ -177,7 +190,7 @@ impl AppchainAnchor {
         slash_acks: &Vec<String>,
     ) -> VscPacketData {
         let vs_pubkeys = validator_set
-            .active_validators()
+            .active_validators(None)
             .iter()
             .map(|(validator_id, stake)| ValidatorKeyAndPower {
                 public_key: self.validator_id_to_pubkey_map.get(&validator_id).unwrap(),
@@ -188,7 +201,7 @@ impl AppchainAnchor {
         let mut validator_pubkeys = match previous_validator_set {
             Some(previous_validator_set) => {
                 let mut previous_vs_pubkeys = previous_validator_set
-                    .active_validators()
+                    .active_validators(None)
                     .iter()
                     .map(|(validator_id, stake)| ValidatorKeyAndPower {
                         public_key: self.validator_id_to_pubkey_map.get(&validator_id).unwrap(),
