@@ -256,6 +256,10 @@ impl ValidatorSet {
     pub fn set_matured(&mut self) {
         self.matured_in_appchain = true;
     }
+    ///
+    pub fn clear_jailed_validators(&mut self) {
+        self.jailed_validators.clear();
+    }
 }
 
 impl ValidatorSetViewer for ValidatorSet {
@@ -361,8 +365,8 @@ impl IndexedAndClearable for ValidatorSet {
 impl ValidatorSet {
     //
     fn update_jailed_timestamp(&mut self, validator_id: &AccountId) {
-        for (id, _, _) in self.jailed_validators.iter() {
-            if id == validator_id {
+        for (id, _, unjailed_time) in self.jailed_validators.iter() {
+            if id == validator_id && *unjailed_time == 0 {
                 panic!("Validator already jailed: {}", validator_id);
             }
         }
@@ -371,12 +375,12 @@ impl ValidatorSet {
     }
     //
     fn update_unjailed_timestamp(&mut self, validator_id: &AccountId, min_unjail_interval: u64) {
-        for (id, jt, ut) in self.jailed_validators.iter_mut() {
-            if id == validator_id {
-                if *jt + min_unjail_interval * 1_000_000_000 > env::block_timestamp() {
+        for (id, jailed_time, unjailed_time) in self.jailed_validators.iter_mut() {
+            if id == validator_id && *unjailed_time == 0 {
+                if *jailed_time + min_unjail_interval > env::block_timestamp() {
                     panic!("Validator is not jailed for long enough: {}", validator_id);
                 } else {
-                    *ut = env::block_timestamp();
+                    *unjailed_time = env::block_timestamp();
                 }
                 return;
             }

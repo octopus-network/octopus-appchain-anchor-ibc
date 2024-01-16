@@ -25,6 +25,8 @@ pub trait SudoActions {
     fn force_jail_validator(&mut self, validator_id: AccountId);
     ///
     fn checked_clean_distributed_rewards(&mut self);
+    ///
+    fn clear_jailed_validators(&mut self);
 }
 
 #[near_bindgen]
@@ -188,5 +190,15 @@ impl SudoActions for AppchainAnchor {
                 break;
             }
         }
+    }
+    //
+    fn clear_jailed_validators(&mut self) {
+        self.assert_owner();
+        let mut validator_set = self
+            .validator_set_histories
+            .get_last()
+            .expect("No validator set found.");
+        validator_set.clear_jailed_validators();
+        self.validator_set_histories.update_last(&validator_set);
     }
 }
