@@ -16,6 +16,10 @@ pub trait AnchorSettingsManager {
     fn change_vsc_packet_timeout_interval(&mut self, interval_secs: U64);
     ///
     fn change_min_validator_staking_amount(&mut self, amount_in_near: U128);
+    ///
+    fn change_min_unjail_interval(&mut self, interval_secs: U64);
+    ///
+    fn change_appchain_address_bech32_hrp(&mut self, bech32_hrp: String);
 }
 
 impl Default for AnchorSettings {
@@ -28,6 +32,8 @@ impl Default for AnchorSettings {
             min_interval_for_new_validator_set: U64::from(3600 * 1_000_000_000),
             vsc_packet_timeout_interval: U64::from(2400 * 1_000_000_000),
             min_validator_staking_amount: U128::from(10_000_000_000_000_000_000_000_000_000),
+            min_unjail_interval: U64::from(600 * 1_000_000_000),
+            appchain_address_bech32_hrp: "unknown".to_string(),
         }
     }
 }
@@ -112,6 +118,29 @@ impl AnchorSettingsManager for AppchainAnchor {
             "The value is not changed."
         );
         anchor_settings.min_validator_staking_amount = U128::from(amount_in_near.0 * NEAR_SCALE);
+        self.anchor_settings.set(&anchor_settings);
+    }
+    //
+    fn change_min_unjail_interval(&mut self, interval_secs: U64) {
+        self.assert_owner();
+        let mut anchor_settings = self.anchor_settings.get().unwrap();
+        let interval = interval_secs.0 * 1_000_000_000;
+        assert!(
+            interval != anchor_settings.min_unjail_interval.0,
+            "The value is not changed."
+        );
+        anchor_settings.min_unjail_interval = U64::from(interval);
+        self.anchor_settings.set(&anchor_settings);
+    }
+    //
+    fn change_appchain_address_bech32_hrp(&mut self, bech32_hrp: String) {
+        self.assert_owner();
+        let mut anchor_settings = self.anchor_settings.get().unwrap();
+        assert!(
+            bech32_hrp != anchor_settings.appchain_address_bech32_hrp,
+            "The value is not changed."
+        );
+        anchor_settings.appchain_address_bech32_hrp = bech32_hrp;
         self.anchor_settings.set(&anchor_settings);
     }
 }

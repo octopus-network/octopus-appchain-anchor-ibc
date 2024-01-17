@@ -1,5 +1,6 @@
 use crate::{validator_set::ValidatorStatus, *};
 use near_sdk::{IntoStorageKey, Timestamp};
+use octopus_lpos::packet::consumer::Validator;
 
 pub type AppchainId = String;
 
@@ -47,6 +48,10 @@ pub struct AnchorSettings {
     pub vsc_packet_timeout_interval: U64,
     /// The minimum staking amount of a quliafied validator.
     pub min_validator_staking_amount: U128,
+    /// The ninimum time interval for the jailed validators can be unjailed (in nanoseconds).
+    pub min_unjail_interval: U64,
+    /// The HRP of bech32 address in corresponding appchain.
+    pub appchain_address_bech32_hrp: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -168,6 +173,8 @@ pub struct ValidatorView {
     pub status: ValidatorStatus,
     /// The public key the validator registered in anchor contract.
     pub registered_pubkey: String,
+    /// The address of the validator in appchain.
+    pub address_in_appchain: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -185,6 +192,8 @@ pub struct ValidatorSetView {
     pub timestamp: Timestamp,
     /// Whether the validator set is matured on appchain.
     pub matured_on_appchain: bool,
+    /// The jailed validators with their account id, jailed time and unjailed time.
+    pub jailed_validators: Vec<(AccountId, Timestamp, Timestamp)>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -209,6 +218,7 @@ pub struct RewardDistribution {
     pub validator_set_id: U64,
     pub amount: U128,
     pub timestamp: Timestamp,
+    pub distributed: bool,
 }
 
 impl IndexedAndClearable for RewardDistribution {
@@ -234,5 +244,16 @@ pub struct ValidatorKeyAndPower {
 pub struct VscPacketData {
     pub validator_pubkeys: Vec<ValidatorKeyAndPower>,
     pub validator_set_id: U64,
-    pub slash_acks: Vec<Vec<u8>>,
+    pub slash_acks: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SlashPacketView {
+    pub validator: Option<Validator>,
+    /// map to the infraction block height on the provider
+    pub valset_update_id: u64,
+    /// tell if the slashing is for a downtime or a double-signing infraction
+    pub infraction: String,
+    pub received_timestamp: Timestamp,
 }

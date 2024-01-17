@@ -13,6 +13,7 @@ extern crate std;
 
 use crate::prelude::*;
 use base64::{DecodeError, Engine};
+use bech32::ToBase32;
 use ibc::core::host::types::identifiers::ChainId;
 use lookup_array::{IndexedAndClearable, LookupArray};
 use near_contract_standards::fungible_token::Balance;
@@ -26,6 +27,7 @@ use near_sdk::{
     serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
     PromiseOrValue,
 };
+use serde_json::json;
 use types::*;
 use validator_set::{ValidatorSet, ValidatorSetViewer};
 
@@ -256,6 +258,21 @@ pub fn calculate_address(public_key: &[u8]) -> Vec<u8> {
     address.expect("Failed to get address from hash.").to_vec()
 }
 
+pub fn calculate_bech32_address(hrp: String, address: Vec<u8>) -> String {
+    bech32::encode(hrp.as_str(), address.to_base32(), bech32::Variant::Bech32)
+        .expect("Invalid address for calculating bech32 address.")
+}
+
+pub fn emit_nep297_event<T: Serialize>(event: &str, data: &T) {
+    let result = json!({
+        "standard":"nep297",
+        "version":"1.0.0",
+        "event":event,
+        "data":data,
+    });
+    log!(format!("EVENT_JSON:{}", result.to_string()));
+}
+
 #[no_mangle]
 pub extern "C" fn remove_storage_keys() {
     env::setup_panic_hook();
@@ -280,6 +297,27 @@ pub extern "C" fn remove_storage_keys() {
             "Remove key '{}': {}",
             key,
             env::storage_remove(&serde_json::from_str::<Base64VecU8>(&json_str).unwrap().0)
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::{test_utils::VMContextBuilder, testing_env};
+
+    #[test]
+    fn test_emit_nep297_event() {
+        let context = VMContextBuilder::new().build();
+        testing_env!(context.clone());
+        emit_nep297_event(
+            "TEST_EVENT",
+            &SlashPacketView {
+                validator: None,
+                valset_update_id: 1,
+                infraction: "infraction".to_string(),
+                received_timestamp: 1,
+            },
         );
     }
 }

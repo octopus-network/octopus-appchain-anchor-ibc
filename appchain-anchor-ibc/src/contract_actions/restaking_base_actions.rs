@@ -4,13 +4,13 @@ use crate::*;
 pub trait RestakingBaseActions {
     /// Set the validator's public key in the appchain.
     ///
-    /// The `key` param should be in bs58 format like
-    /// `ed25519:8wKmDwNsF1hPzsDW8ASdU9GuwfSpT93ieTyP7767nLS9`.
+    /// The `key` param should be in base64 format like
+    /// `ed25519:GMaw7UPsXqPr7IRijvt/BgVU93A6hs98JZbUJtKMAuA=`.
     fn bond(&mut self, staker_id: AccountId, key: String);
     /// Change the validator's public key in the appchain.
     ///
-    /// The `key` param should be in bs58 format like
-    /// `ed25519:8wKmDwNsF1hPzsDW8ASdU9GuwfSpT93ieTyP7767nLS9`.
+    /// The `key` param should be in base64 format like
+    /// `ed25519:GMaw7UPsXqPr7IRijvt/BgVU93A6hs98JZbUJtKMAuA=`.
     fn change_key(&mut self, staker_id: AccountId, key: String);
 }
 

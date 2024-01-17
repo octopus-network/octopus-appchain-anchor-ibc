@@ -1,6 +1,6 @@
 [package]
 name = "appchain-anchor-ibc"
-version = "1.0.1"
+version = "1.1.0"
 authors = ["Octopus Network"]
 edition = "2021"
 
@@ -18,3 +18,4 @@ tendermint = { workspace = true }
 tendermint-proto = { workspace = true }
 base64 = { workspace = true }
 octopus-lpos = { workspace = true }
+bech32 = { workspace = true }

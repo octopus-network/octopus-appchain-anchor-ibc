@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{ext_contracts::RestakingBaseValidatorSet, *};
 use near_sdk::{IntoStorageKey, Timestamp};
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Deserialize, Serialize, Clone)]
@@ -56,19 +56,21 @@ pub struct Validator {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct ValidatorSet {
     /// The id of the validator set.
-    id: u64,
+    pub id: u64,
     /// The set of account id of validators.
-    validator_id_set: UnorderedSet<AccountId>,
+    pub validator_id_set: UnorderedSet<AccountId>,
     /// The validators data, mapped by their account id in NEAR protocol.
-    validators: LookupMap<AccountId, Validator>,
+    pub validators: LookupMap<AccountId, Validator>,
     /// Total stake of current set
-    total_stake: Balance,
+    pub total_stake: Balance,
     /// The sequence of the validator set in restaking base contract.
-    sequence: u64,
-    ///
-    timestamp: Timestamp,
+    pub sequence: u64,
+    /// The timestamp of when this validator set is created.
+    pub timestamp: Timestamp,
     /// Whether the validator set is matured in the corresponding appchain.
-    matured_in_appchain: bool,
+    pub matured_in_appchain: bool,
+    /// The jailed validators with their account id, jailed time and unjailed time.
+    pub jailed_validators: Vec<(AccountId, Timestamp, Timestamp)>,
 }
 
 pub trait ValidatorSetViewer {
@@ -93,24 +95,69 @@ pub trait ValidatorSetViewer {
     ///
     fn validator_count(&self) -> u64;
     ///
-    fn active_validators(&self) -> Vec<(AccountId, U128)>;
+    fn active_validators(&self, period: Option<(Timestamp, Timestamp)>) -> Vec<(AccountId, U128)>;
+    ///
+    fn jailed_validators(&self) -> Vec<(AccountId, Timestamp, Timestamp)>;
     ///
     fn slash_ack_validators(&self) -> Vec<AccountId>;
 }
 
 impl ValidatorSet {
     ///
-    pub fn new(id: u64, sequence: u64) -> Self {
-        Self {
-            id: id,
-            validator_id_set: UnorderedSet::new(
-                StorageKey::ValidatorIdSetOf(id).into_storage_key(),
-            ),
-            validators: LookupMap::new(StorageKey::ValidatorsOf(id).into_storage_key()),
-            total_stake: 0,
-            sequence,
-            timestamp: env::block_timestamp(),
-            matured_in_appchain: false,
+    pub fn new(
+        last_vs: &Option<ValidatorSet>,
+        restaking_base_vs: &RestakingBaseValidatorSet,
+        min_validator_staking_amount: u128,
+    ) -> Self {
+        if let Some(last_vs) = last_vs {
+            let id = last_vs.id + 1;
+            let mut jailed_validators = Vec::new();
+            for (id, jt, ut) in last_vs.jailed_validators.iter() {
+                if *ut == 0 {
+                    jailed_validators.push((id.clone(), *jt, *ut));
+                }
+            }
+            let mut new_instance = Self {
+                id,
+                validator_id_set: UnorderedSet::new(
+                    StorageKey::ValidatorIdSetOf(id).into_storage_key(),
+                ),
+                validators: LookupMap::new(StorageKey::ValidatorsOf(id).into_storage_key()),
+                total_stake: 0,
+                sequence: restaking_base_vs.sequence.0,
+                timestamp: env::block_timestamp(),
+                matured_in_appchain: false,
+                jailed_validators,
+            };
+            for (validator_id, stake) in &restaking_base_vs.validator_set {
+                new_instance.add_validator(
+                    validator_id.clone(),
+                    stake.0,
+                    if stake.0 >= min_validator_staking_amount {
+                        if let Some(validator) = last_vs.get_validator(&validator_id) {
+                            validator.status.clone()
+                        } else {
+                            ValidatorStatus::Active
+                        }
+                    } else {
+                        ValidatorStatus::Unqualified
+                    },
+                );
+            }
+            new_instance
+        } else {
+            Self {
+                id: 0,
+                validator_id_set: UnorderedSet::new(
+                    StorageKey::ValidatorIdSetOf(0).into_storage_key(),
+                ),
+                validators: LookupMap::new(StorageKey::ValidatorsOf(0).into_storage_key()),
+                total_stake: 0,
+                sequence: restaking_base_vs.sequence.0,
+                timestamp: env::block_timestamp(),
+                matured_in_appchain: false,
+                jailed_validators: Vec::new(),
+            }
         }
     }
     ///
@@ -130,6 +177,11 @@ impl ValidatorSet {
                 },
             );
             self.total_stake += stake;
+        } else {
+            panic!(
+                "Validator already exists in validator set {}: {}",
+                self.id, validator_id
+            );
         }
     }
     ///
@@ -144,7 +196,32 @@ impl ValidatorSet {
                         status: ValidatorStatus::Jailed,
                     },
                 );
+                self.update_jailed_timestamp(validator_id);
+            } else {
+                panic!("Validator is not active: {}", validator_id)
             }
+        } else {
+            panic!("Validator not found: {}", validator_id)
+        }
+    }
+    ///
+    pub fn unjail_validator(&mut self, validator_id: &AccountId, min_unjail_interval: u64) {
+        if let Some(validator) = self.validators.get(validator_id) {
+            if validator.status == ValidatorStatus::Jailed {
+                self.validators.insert(
+                    &validator_id,
+                    &Validator {
+                        validator_id: validator_id.clone(),
+                        total_stake: validator.total_stake,
+                        status: ValidatorStatus::Active,
+                    },
+                );
+                self.update_unjailed_timestamp(validator_id, min_unjail_interval);
+            } else {
+                panic!("Validator is not jailed: {}", validator_id)
+            }
+        } else {
+            panic!("Validator not found: {}", validator_id)
         }
     }
     ///
@@ -178,6 +255,10 @@ impl ValidatorSet {
     ///
     pub fn set_matured(&mut self) {
         self.matured_in_appchain = true;
+    }
+    ///
+    pub fn clear_jailed_validators(&mut self) {
+        self.jailed_validators.clear();
     }
 }
 
@@ -226,12 +307,13 @@ impl ValidatorSetViewer for ValidatorSet {
         self.validator_id_set.len()
     }
     //
-    fn active_validators(&self) -> Vec<(AccountId, U128)> {
+    fn active_validators(&self, period: Option<(Timestamp, Timestamp)>) -> Vec<(AccountId, U128)> {
         self.validator_id_set
             .iter()
             .filter(|id| {
                 if let Some(validator) = self.validators.get(&id) {
                     validator.status == ValidatorStatus::Active
+                        && !self.is_validator_jailed_in_period(id, period)
                 } else {
                     false
                 }
@@ -247,6 +329,10 @@ impl ValidatorSetViewer for ValidatorSet {
                 }
             })
             .collect()
+    }
+    //
+    fn jailed_validators(&self) -> Vec<(AccountId, Timestamp, Timestamp)> {
+        self.jailed_validators.clone()
     }
     //
     fn slash_ack_validators(&self) -> Vec<AccountId> {
@@ -274,5 +360,57 @@ impl IndexedAndClearable for ValidatorSet {
     ///
     fn clear_extra_storage(&mut self, max_gas: Gas) -> ProcessingResult {
         self.clear(max_gas)
+    }
+}
+
+impl ValidatorSet {
+    //
+    fn update_jailed_timestamp(&mut self, validator_id: &AccountId) {
+        for (id, _, unjailed_time) in self.jailed_validators.iter() {
+            if id == validator_id && *unjailed_time == 0 {
+                panic!("Validator already jailed: {}", validator_id);
+            }
+        }
+        self.jailed_validators
+            .push((validator_id.clone(), env::block_timestamp(), 0));
+    }
+    //
+    fn update_unjailed_timestamp(&mut self, validator_id: &AccountId, min_unjail_interval: u64) {
+        for (id, jailed_time, unjailed_time) in self.jailed_validators.iter_mut() {
+            if id == validator_id && *unjailed_time == 0 {
+                if *jailed_time + min_unjail_interval > env::block_timestamp() {
+                    panic!("Validator is not jailed for long enough: {}", validator_id);
+                } else {
+                    *unjailed_time = env::block_timestamp();
+                }
+                return;
+            }
+        }
+        panic!("Validator not found: {}", validator_id);
+    }
+    //
+    fn is_validator_jailed_in_period(
+        &self,
+        validator_id: &AccountId,
+        period: Option<(Timestamp, Timestamp)>,
+    ) -> bool {
+        if let Some((start, end)) = period {
+            for (id, jailed_time, unjailed_time) in self.jailed_validators.iter() {
+                if id == validator_id {
+                    if *unjailed_time == 0 {
+                        if *jailed_time >= start && *jailed_time <= end {
+                            return true;
+                        }
+                    } else {
+                        if *unjailed_time >= start && *unjailed_time <= end {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        } else {
+            false
+        }
     }
 }

@@ -56,7 +56,7 @@ impl AppchainLifecycleManager for AppchainAnchor {
         );
         let init_vs = self.validator_set_histories.get(&0).unwrap();
         let validators_bytes: Vec<Vec<u8>> = init_vs
-            .active_validators()
+            .active_validators(None)
             .iter()
             .map(|(validator_id, stake)| {
                 ValidatorUpdate {
