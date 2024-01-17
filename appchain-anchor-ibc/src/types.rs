@@ -173,6 +173,8 @@ pub struct ValidatorView {
     pub status: ValidatorStatus,
     /// The public key the validator registered in anchor contract.
     pub registered_pubkey: String,
+    /// The address of the validator in appchain.
+    pub address_in_appchain: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

@@ -114,6 +114,7 @@ impl AnchorViewer for AppchainAnchor {
 impl AppchainAnchor {
     //
     fn get_validator_set_view_of(&self, validator_set: &ValidatorSet) -> ValidatorSetView {
+        let anchor_settings = self.anchor_settings.get().unwrap();
         ValidatorSetView {
             id: U64::from(validator_set.id()),
             validators: validator_set
@@ -132,6 +133,15 @@ impl AppchainAnchor {
                                     format!(
                                         "ed25519:{}",
                                         base64::engine::general_purpose::STANDARD.encode(&bytes)
+                                    )
+                                },
+                            ),
+                            address_in_appchain: self.validator_id_to_pubkey_map.get(&id).map_or(
+                                String::new(),
+                                |bytes| {
+                                    calculate_bech32_address(
+                                        anchor_settings.appchain_address_bech32_hrp.clone(),
+                                        calculate_address(&bytes),
                                     )
                                 },
                             ),
