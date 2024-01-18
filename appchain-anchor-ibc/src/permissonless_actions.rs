@@ -232,11 +232,22 @@ impl AppchainAnchor {
             }
             None => vs_pubkeys.clone(),
         };
+        for pvkp in &mut validator_pubkeys {
+            if removing_pubkeys.contains(&pvkp.public_key.clone()) {
+                pvkp.power = U64::from(0);
+            }
+        }
         for pubkey in removing_pubkeys {
-            validator_pubkeys.push(ValidatorKeyAndPower {
-                public_key: pubkey.clone(),
-                power: U64::from(0),
-            });
+            if validator_pubkeys
+                .iter()
+                .find(|vkp| vkp.public_key == *pubkey)
+                .is_none()
+            {
+                validator_pubkeys.push(ValidatorKeyAndPower {
+                    public_key: pubkey.clone(),
+                    power: U64::from(0),
+                });
+            }
         }
         VscPacketData {
             validator_pubkeys,
